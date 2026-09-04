@@ -9,30 +9,142 @@ import { checkSafetyTriggers } from '../lib/safety.js'
 import { buildSystemPrompt } from '../lib/systemPrompt.js'
 import { getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
 import { supabase } from '../lib/supabase.js'
+import multer from 'multer'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
 const router = Router()
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+// Multer config — memory storage, 10MB limit
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ]
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new Error('File type not supported'))
+    }
+  }
 })
+
+// POST /chat/upload
+// Upload a file attachment — returns a storage path to reference in chat
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' })
+    }
+
+    const { originalname, mimetype, buffer, size } = req.file
+    const timestamp = Date.now()
+    const safeName = originalname.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const storagePath = `${req.user.id}/${timestamp}_${safeName}`
+
+    // Upload to Supabase storage
+    const { error: uploadError } = await supabase.storage
+      .from('attachments')
+      .upload(storagePath, buffer, {
+        contentType: mimetype,
+        upsert: false
+      })
+
+    if (uploadError) throw uploadError
+
+    res.json({
+      storage_path: storagePath,
+      file_name: originalname,
+      file_type: mimetype,
+      file_size: size
+    })
+  } catch (err) {
+    console.error('Upload error:', err)
+    res.status(500).json({ error: 'Failed to upload file' })
+  }
+})
+
+// Helper — download file from Supabase and convert to base64
+async function getFileAsBase64(storagePath) {
+  const { data, error } = await supabase.storage
+    .from('attachments')
+    .download(storagePath)
+
+  if (error) throw error
+
+  const buffer = await data.arrayBuffer()
+  return Buffer.from(buffer).toString('base64')
+}
+
+// Helper — build Claude message content with optional attachment
+async function buildUserMessageContent(message, attachment) {
+  if (!attachment) {
+    return message
+  }
+
+  const { storage_path, file_type, file_name } = attachment
+  const isImage = file_type.startsWith('image/')
+
+  if (isImage) {
+    const base64 = await getFileAsBase64(storage_path)
+    return [
+      {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: file_type,
+          data: base64
+        }
+      },
+      {
+        type: 'text',
+        text: message
+      }
+    ]
+  } else {
+    // For non-image files (PDF, DOCX, TXT) — download and include as text document
+    const base64 = await getFileAsBase64(storage_path)
+    return [
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: file_type === 'application/pdf' ? 'application/pdf' : 'text/plain',
+          data: base64
+        },
+        title: file_name
+      },
+      {
+        type: 'text',
+        text: message
+      }
+    ]
+  }
+}
 
 router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
   const startTime = Date.now()
   const {
     message,
     conversation_id,
-    language = 'en'
+    language = 'en',
+    attachment = null
   } = req.body
 
-  // Validate input
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return res.status(400).json({ error: 'Message is required' })
   }
 
   try {
-    // Step 1 — Check token limits
+    // Step 1 — Token limits
     const limitCheck = await checkTokenLimits(req.user.id)
     if (!limitCheck.allowed) {
       return res.status(429).json({
@@ -42,10 +154,9 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       })
     }
 
-    // Step 2 — Check safety guardrails
+    // Step 2 — Safety guardrails
     const safetyCheck = checkSafetyTriggers(message)
     if (safetyCheck.triggered) {
-      // Log safety event
       await supabase.from('safety_events').insert({
         user_id: req.user.id,
         conversation_id: conversation_id || null,
@@ -53,7 +164,6 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
         trigger_category: safetyCheck.category
       })
 
-      // Save to conversation if exists
       if (conversation_id) {
         await saveMessage(conversation_id, 'user', message, { language, safety_triggered: true })
         await saveMessage(conversation_id, 'assistant', safetyCheck.message, { language, safety_triggered: true })
@@ -74,35 +184,61 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     }
 
     // Step 4 — Save user message
-    await saveMessage(convId, 'user', message, { language })
+    const userMessage = await saveMessage(convId, 'user', message, { language })
 
-    // Step 5 — Embed the query
+    // Step 5 — Save attachment record if present
+    if (attachment) {
+      await supabase.from('message_attachments').insert({
+        message_id: userMessage.id,
+        conversation_id: convId,
+        user_id: req.user.id,
+        file_name: attachment.file_name,
+        file_type: attachment.file_type,
+        file_size: attachment.file_size,
+        storage_path: attachment.storage_path
+      })
+    }
+
+    // Step 6 — Embed and retrieve
     const queryEmbedding = await embedQuery(message)
-
-    // Step 6 — Retrieve relevant chunks
     const chunks = await retrieveChunks(queryEmbedding, message)
+
+    // Debug log
+    console.log('Retrieved chunks (after reranking):')
+    chunks.forEach((c, i) => {
+      const score = c.rerank_score !== undefined
+        ? `rerank: ${c.rerank_score?.toFixed(3)}`
+        : `similarity: ${c.similarity?.toFixed(3)}`
+      console.log(`  [${i+1}] ${c.source_file_name} (${score})`)
+      console.log(`       ${c.content.slice(0, 150).replace(/\n/g, ' ')}...`)
+    })
+
     const contextText = formatChunksForPrompt(chunks)
     const citationData = formatChunksForCitation(chunks)
 
-    // Step 7 — Get conversation history
+    // Step 7 — Conversation history
     const history = await getConversationHistory(convId)
 
-    // Step 8 — Build messages array for Claude
+    // Step 8 — Build user message content (with attachment if present)
+    const userContent = await buildUserMessageContent(
+      `Here are relevant excerpts from SHIFT's documents:\n\n${contextText}\n\n---\n\nBased on the above documents, please answer this question:\n\n${message}`,
+      attachment
+    )
+
     const messages = [
       ...history,
       {
         role: 'user',
-        content: `Here are relevant excerpts from SHIFT's documents:\n\n${contextText}\n\n---\n\nBased on the above documents, please answer this question:\n\n${message}`
+        content: userContent
       }
     ]
 
-    // Step 9 — Set up SSE streaming
+    // Step 9 — SSE streaming setup
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
     res.setHeader('X-Conversation-Id', convId)
 
-    // Send conversation ID immediately so frontend can store it
     res.write(`data: ${JSON.stringify({ type: 'conversation_id', conversation_id: convId })}\n\n`)
 
     // Step 10 — Stream Claude response
@@ -111,8 +247,8 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     let outputTokens = 0
 
     const stream = anthropic.messages.stream({
-      model: 'claude-sonnet-5',
-      max_tokens: 4096,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
       system: buildSystemPrompt(language),
       messages
     })
@@ -122,16 +258,16 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`)
     })
 
-    stream.on('message', (message) => {
-      inputTokens = message.usage.input_tokens
-      outputTokens = message.usage.output_tokens
+    stream.on('message', (msg) => {
+      inputTokens = msg.usage.input_tokens
+      outputTokens = msg.usage.output_tokens
     })
 
     await stream.finalMessage()
 
     const latencyMs = Date.now() - startTime
 
-    // Step 11 — Save assistant response with metadata
+    // Step 11 — Save assistant response
     await saveMessage(convId, 'assistant', fullResponse, {
       chunks_used: citationData,
       tokens_in: inputTokens,
@@ -140,38 +276,22 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       language
     })
 
-    // Step 12 — Send citations and done signal
-    res.write(`data: ${JSON.stringify({
-      type: 'citations',
-      citations: citationData
-    })}\n\n`)
-
-    res.write(`data: ${JSON.stringify({
-      type: 'done',
-      tokens_in: inputTokens,
-      tokens_out: outputTokens,
-      latency_ms: latencyMs
-    })}\n\n`)
-
+    // Step 12 — Send citations and done
+    res.write(`data: ${JSON.stringify({ type: 'citations', citations: citationData })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'done', tokens_in: inputTokens, tokens_out: outputTokens, latency_ms: latencyMs })}\n\n`)
     res.end()
 
   } catch (err) {
     console.error('Chat error:', err)
-
     if (!res.headersSent) {
       return res.status(500).json({ error: 'Failed to process message' })
     }
-
-    res.write(`data: ${JSON.stringify({
-      type: 'error',
-      message: 'Something went wrong. Please try again.'
-    })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'error', message: 'Something went wrong. Please try again.' })}\n\n`)
     res.end()
   }
 })
 
 // GET /chat/conversations
-// List past conversations for current user
 router.get('/conversations', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -190,12 +310,10 @@ router.get('/conversations', requireAuth, async (req, res) => {
 })
 
 // GET /chat/conversations/:id
-// Get full conversation thread
 router.get('/conversations/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params
 
-    // Verify conversation belongs to user
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
       .select('*')
@@ -207,7 +325,6 @@ router.get('/conversations/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Conversation not found' })
     }
 
-    // Get messages
     const { data: messages, error: msgError } = await supabase
       .from('messages')
       .select('*')
@@ -216,7 +333,27 @@ router.get('/conversations/:id', requireAuth, async (req, res) => {
 
     if (msgError) throw msgError
 
-    res.json({ conversation, messages })
+    // Get attachments for each message
+    const messageIds = messages.map(m => m.id)
+    const { data: attachments } = await supabase
+      .from('message_attachments')
+      .select('*')
+      .in('message_id', messageIds)
+
+    const attachmentsByMessage = {}
+    attachments?.forEach(a => {
+      if (!attachmentsByMessage[a.message_id]) {
+        attachmentsByMessage[a.message_id] = []
+      }
+      attachmentsByMessage[a.message_id].push(a)
+    })
+
+    const messagesWithAttachments = messages.map(m => ({
+      ...m,
+      attachments: attachmentsByMessage[m.id] || []
+    }))
+
+    res.json({ conversation, messages: messagesWithAttachments })
   } catch (err) {
     console.error('Conversation thread error:', err)
     res.status(500).json({ error: 'Failed to fetch conversation' })

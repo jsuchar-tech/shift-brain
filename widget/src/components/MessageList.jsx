@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import MessageBubble from './MessageBubble'
 
-export default function MessageList({ messages, isLoading }) {
+export default function MessageList({ messages, isLoading, fontSize }) {
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function MessageList({ messages, isLoading }) {
       paddingBottom: '8px'
     }}>
       {messages.map(msg => (
-        <MessageBubble key={msg.id} message={msg} />
+        <MessageBubble key={msg.id} message={msg} fontSize={fontSize} />
       ))}
       {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
         <div style={{ padding: '0 20px 16px' }}>

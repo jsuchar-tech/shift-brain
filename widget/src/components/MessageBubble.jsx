@@ -1,29 +1,51 @@
 import ReactMarkdown from 'react-markdown'
 import SourceCitations from './SourceCitations'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
-function SafeMarkdown({ content }) {
-  try {
-    return (
-      <ReactMarkdown
-        components={{
-          p: ({ children }) => <p style={{ marginBottom: '8px' }}>{children}</p>,
-          ul: ({ children }) => <ul style={{ paddingLeft: '20px', marginBottom: '8px' }}>{children}</ul>,
-          ol: ({ children }) => <ol style={{ paddingLeft: '20px', marginBottom: '8px' }}>{children}</ol>,
-          li: ({ children }) => <li style={{ marginBottom: '4px' }}>{children}</li>,
-          strong: ({ children }) => <strong style={{ fontWeight: '600' }}>{children}</strong>,
-          code: ({ children }) => <code style={{ background: '#f0f0f0', padding: '2px 4px', borderRadius: '3px', fontSize: '13px' }}>{children}</code>
-        }}
-      >
-        {content || ''}
-      </ReactMarkdown>
-    )
-  } catch (e) {
-    return <p>{content}</p>
+function CopyButton({ content }) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    // Strip markdown to plain text
+    const plain = content
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`(.*?)`/g, '$1')
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+      .replace(/^[-•]\s/gm, '')
+      .trim()
+
+    navigator.clipboard.writeText(plain).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
+
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        marginTop: '8px',
+        padding: '4px 10px',
+        border: '1px solid #e2e8f0',
+        borderRadius: '6px',
+        background: 'white',
+        color: copied ? '#2d7a3a' : '#888',
+        fontSize: '12px',
+        cursor: 'pointer',
+        transition: 'all 0.15s'
+      }}
+    >
+      {copied ? '✓ Copied' : '⎘ Copy'}
+    </button>
+  )
 }
 
-export default function MessageBubble({ message }) {
+export default function MessageBubble({ message, fontSize = 16 }) {
   const isUser = message.role === 'user'
 
   return (
@@ -40,14 +62,32 @@ export default function MessageBubble({ message }) {
         background: isUser ? '#4a90d9' : 'white',
         color: isUser ? 'white' : '#333',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        fontSize: '14px',
+        fontSize: `${fontSize}px`,
         lineHeight: '1.6'
       }}>
         {isUser ? (
-          <p>{message.content}</p>
+          <div>
+            <p>{message.content}</p>
+            {message.attachments && message.attachments.length > 0 && (
+              <div style={{ marginTop: '8px', fontSize: '12px', opacity: 0.8 }}>
+                📎 {message.attachments.map(a => a.file_name).join(', ')}
+              </div>
+            )}
+          </div>
         ) : (
           <>
-            <SafeMarkdown content={message.content} />
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p style={{ marginBottom: '8px' }}>{children}</p>,
+                ul: ({ children }) => <ul style={{ paddingLeft: '20px', marginBottom: '8px' }}>{children}</ul>,
+                ol: ({ children }) => <ol style={{ paddingLeft: '20px', marginBottom: '8px' }}>{children}</ol>,
+                li: ({ children }) => <li style={{ marginBottom: '4px' }}>{children}</li>,
+                strong: ({ children }) => <strong style={{ fontWeight: '600' }}>{children}</strong>,
+                code: ({ children }) => <code style={{ background: '#f0f0f0', padding: '2px 4px', borderRadius: '3px', fontSize: '13px' }}>{children}</code>
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
             {message.streaming && (
               <span style={{
                 display: 'inline-block',
@@ -58,6 +98,9 @@ export default function MessageBubble({ message }) {
                 animation: 'blink 1s infinite',
                 verticalAlign: 'middle'
               }} />
+            )}
+            {!message.streaming && message.content && (
+              <CopyButton content={message.content} />
             )}
             {message.citations && message.citations.length > 0 && (
               <SourceCitations citations={message.citations} />

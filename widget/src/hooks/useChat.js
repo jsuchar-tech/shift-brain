@@ -8,7 +8,7 @@ export function useChat(getToken) {
   const [conversationId, setConversationId] = useState(null)
   const [error, setError] = useState(null)
 
-  const sendMessage = useCallback(async (text, language) => {
+const sendMessage = useCallback(async (text, language, attachment = null) => {
     if (!text.trim() || isLoading) return
 
     setIsLoading(true)
@@ -37,6 +37,7 @@ export function useChat(getToken) {
       message: text,
       conversationId,
       language,
+      attachment,
       onText: (chunk) => {
         setMessages(prev => prev.map(msg =>
           msg.id === assistantId

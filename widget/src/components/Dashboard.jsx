@@ -230,7 +230,7 @@ function ConversationsTab({ getToken }) {
         borderRight: '1px solid #f0f0f0',
         paddingRight: '16px'
       }}>
-        <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
+        <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -318,13 +318,40 @@ function ConversationsTab({ getToken }) {
                   border: '1px solid #f0f0f0'
                 }}
               >
-                <p style={{ fontSize: '11px', fontWeight: '600', color: msg.role === 'user' ? '#4a90d9' : '#666', marginBottom: '6px', textTransform: 'uppercase' }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: msg.role === 'user' ? '#4a90d9' : '#666',
+                  marginBottom: '6px',
+                  textTransform: 'uppercase'
+                }}>
                   {msg.role === 'user' ? 'Participant' : 'SHIFT Brain'}
                   {msg.safety_triggered && (
                     <span style={{ marginLeft: '8px', color: '#e53e3e' }}>⚠ Safety</span>
                   )}
                 </p>
                 <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#333' }}>{msg.content}</p>
+
+                {/* Attachments */}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div style={{ marginTop: '8px' }}>
+                    {msg.attachments.map((a, i) => (
+                      <span key={i} style={{
+                        display: 'inline-block',
+                        padding: '2px 8px',
+                        background: '#f0f7ff',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        color: '#4a90d9',
+                        marginRight: '4px'
+                      }}>
+                        📎 {a.file_name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Source citations */}
                 {msg.chunks_used && msg.chunks_used.length > 0 && (
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0' }}>
                     <p style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>Sources used:</p>
@@ -335,6 +362,7 @@ function ConversationsTab({ getToken }) {
                     ))}
                   </div>
                 )}
+
                 <p style={{ fontSize: '11px', color: '#ccc', marginTop: '6px' }}>
                   {new Date(msg.created_at).toLocaleTimeString()}
                   {msg.tokens_in ? ` · ${msg.tokens_in + msg.tokens_out} tokens` : ''}
@@ -527,7 +555,6 @@ export default function Dashboard({ onBack }) {
       background: '#f7f9fc',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     }}>
-      {/* Header */}
       <div style={{
         background: 'white',
         borderBottom: '1px solid #f0f0f0',
@@ -558,7 +585,6 @@ export default function Dashboard({ onBack }) {
         </div>
       </div>
 
-      {/* Content */}
       <div style={{ padding: '24px 32px' }}>
         <div style={{ background: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #f0f0f0' }}>
           {activeTab === 'participants' && <ParticipantsTab getToken={getToken} />}

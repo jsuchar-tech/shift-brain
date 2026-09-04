@@ -180,16 +180,24 @@ router.get('/me', requireAuth, async (req, res) => {
 // PATCH /auth/me
 router.patch('/me', requireAuth, async (req, res) => {
   try {
-    const { language_preference } = req.body
+    const { language_preference, font_size } = req.body
     const allowed = ['en', 'es', 'fr', 'pt']
 
     if (language_preference && !allowed.includes(language_preference)) {
       return res.status(400).json({ error: 'Invalid language' })
     }
 
+    if (font_size && (font_size < 12 || font_size > 24)) {
+      return res.status(400).json({ error: 'Font size must be between 12 and 24' })
+    }
+
+    const updates = {}
+    if (language_preference) updates.language_preference = language_preference
+    if (font_size) updates.font_size = font_size
+
     const { data: user, error } = await supabase
       .from('users')
-      .update({ language_preference })
+      .update(updates)
       .eq('id', req.user.id)
       .select()
       .single()

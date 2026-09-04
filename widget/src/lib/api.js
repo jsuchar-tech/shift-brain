@@ -63,7 +63,8 @@ export async function streamChat({ getToken, message, conversationId, language, 
     body: JSON.stringify({
       message,
       conversation_id: conversationId,
-      language
+      language,
+      attachment
     })
   })
 
@@ -107,4 +108,34 @@ export async function streamChat({ getToken, message, conversationId, language, 
   }
 
   return conversationId_returned
+}
+export async function uploadFile(getToken, file) {
+  const token = await getToken()
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetch(`${API_URL}/chat/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  })
+
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Upload failed')
+  }
+  return res.json()
+}
+
+export async function updateFontSize(getToken, fontSize) {
+  const headers = await getHeaders(getToken)
+  const res = await fetch(`${API_URL}/auth/me`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ font_size: fontSize })
+  })
+  if (!res.ok) throw new Error('Failed to update font size')
+  return res.json()
 }
