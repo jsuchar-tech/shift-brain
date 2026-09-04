@@ -3,6 +3,14 @@ import { useState, useRef } from 'react'
 const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt'
 const MAX_SIZE_MB = 10
 
+function PaperclipIcon({ color = '#aaa' }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+    </svg>
+  )
+}
+
 export default function InputBar({ onSend, isLoading, language, onFileUpload, uploadedFile, onClearFile }) {
   const [value, setValue] = useState('')
   const fileInputRef = useRef(null)
@@ -30,12 +38,10 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
   function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
-
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       alert(`File too large. Maximum size is ${MAX_SIZE_MB}MB.`)
       return
     }
-
     onFileUpload(file)
     e.target.value = ''
   }
@@ -54,17 +60,20 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
           fontSize: '13px',
           color: '#4a90d9'
         }}>
-          <span>📎 {uploadedFile.file_name}</span>
+          <PaperclipIcon color="#4a90d9" />
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {uploadedFile.file_name}
+          </span>
           <button
             onClick={onClearFile}
             style={{
-              marginLeft: 'auto',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
               color: '#aaa',
-              fontSize: '16px',
-              lineHeight: 1
+              fontSize: '18px',
+              lineHeight: 1,
+              padding: '0 2px'
             }}
           >
             ×
@@ -92,22 +101,25 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          title="Attach file"
+          title="Attach file (images, PDF, Word, TXT — max 10MB)"
           style={{
             width: '32px',
             height: '32px',
             border: 'none',
             background: 'transparent',
             cursor: isLoading ? 'not-allowed' : 'pointer',
-            color: uploadedFile ? '#4a90d9' : '#aaa',
-            fontSize: '18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0
+            flexShrink: 0,
+            opacity: isLoading ? 0.4 : 1,
+            borderRadius: '6px',
+            transition: 'background 0.15s'
           }}
+          onMouseEnter={e => { if (!isLoading) e.currentTarget.style.background = '#e8f0fe' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
         >
-          📎
+          <PaperclipIcon color={uploadedFile ? '#4a90d9' : '#999'} />
         </button>
 
         <textarea
@@ -149,12 +161,14 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '16px',
             flexShrink: 0,
             transition: 'background 0.15s'
           }}
         >
-          ↑
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+            <path d="M12 5l7 7M12 5l-7 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+          </svg>
         </button>
       </div>
     </div>

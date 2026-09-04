@@ -51,7 +51,48 @@ export async function updateLanguage(getToken, language) {
   return res.json()
 }
 
-export async function streamChat({ getToken, message, conversationId, language, onText, onCitations, onDone, onError }) {
+export async function updateFontSize(getToken, fontSize) {
+  const headers = await getHeaders(getToken)
+  const res = await fetch(`${API_URL}/auth/me`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ font_size: fontSize })
+  })
+  if (!res.ok) throw new Error('Failed to update font size')
+  return res.json()
+}
+
+export async function uploadFile(getToken, file) {
+  const token = await getToken()
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetch(`${API_URL}/chat/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+    throw new Error(err.error || 'Upload failed')
+  }
+  return res.json()
+}
+
+export async function streamChat({
+  getToken,
+  message,
+  conversationId,
+  language,
+  attachment = null,
+  onText,
+  onCitations,
+  onDone,
+  onError
+}) {
   const token = await getToken()
 
   const res = await fetch(`${API_URL}/chat`, {
@@ -69,7 +110,7 @@ export async function streamChat({ getToken, message, conversationId, language, 
   })
 
   if (!res.ok) {
-    const err = await res.json()
+    const err = await res.json().catch(() => ({ message: 'Request failed' }))
     onError(err)
     return null
   }
@@ -89,7 +130,6 @@ export async function streamChat({ getToken, message, conversationId, language, 
       if (!line.startsWith('data: ')) continue
       try {
         const data = JSON.parse(line.slice(6))
-
         if (data.type === 'conversation_id') {
           conversationId_returned = data.conversation_id
         } else if (data.type === 'text') {
@@ -108,34 +148,4 @@ export async function streamChat({ getToken, message, conversationId, language, 
   }
 
   return conversationId_returned
-}
-export async function uploadFile(getToken, file) {
-  const token = await getToken()
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const res = await fetch(`${API_URL}/chat/upload`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    },
-    body: formData
-  })
-
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error || 'Upload failed')
-  }
-  return res.json()
-}
-
-export async function updateFontSize(getToken, fontSize) {
-  const headers = await getHeaders(getToken)
-  const res = await fetch(`${API_URL}/auth/me`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ font_size: fontSize })
-  })
-  if (!res.ok) throw new Error('Failed to update font size')
-  return res.json()
 }

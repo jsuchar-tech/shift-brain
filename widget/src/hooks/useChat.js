@@ -8,22 +8,21 @@ export function useChat(getToken) {
   const [conversationId, setConversationId] = useState(null)
   const [error, setError] = useState(null)
 
-const sendMessage = useCallback(async (text, language, attachment = null) => {
+  const sendMessage = useCallback(async (text, language, attachment = null) => {
     if (!text.trim() || isLoading) return
 
     setIsLoading(true)
     setError(null)
     setCitations([])
 
-    // Add user message immediately
     const userId = Date.now()
     setMessages(prev => [...prev, {
       role: 'user',
       content: text,
-      id: userId
+      id: userId,
+      attachments: attachment ? [{ file_name: attachment.file_name }] : []
     }])
 
-    // Add empty assistant message for streaming
     const assistantId = Date.now() + Math.random()
     setMessages(prev => [...prev, {
       role: 'assistant',
@@ -86,7 +85,8 @@ const sendMessage = useCallback(async (text, language, attachment = null) => {
       role: m.role,
       content: m.content,
       id: m.id,
-      citations: m.chunks_used || []
+      citations: m.chunks_used || [],
+      attachments: m.attachments || []
     })))
     setCitations([])
   }, [])
