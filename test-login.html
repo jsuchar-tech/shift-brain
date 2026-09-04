@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SHIFT Brain Test Login</title>
+</head>
+<body>
+  <h2>SHIFT Brain Test Login</h2>
+  <div id="sign-in"></div>
+  <div id="output" style="margin-top:20px; display:none">
+    <h3>Your token (copy this):</h3>
+    <textarea id="jwt" rows="8" cols="80"></textarea>
+  </div>
+
+  <script>
+const PUBLISHABLE_KEY = 'pk_test_dmFsaWQtaGVycmluZy0yMi5jbGVyay5hY2NvdW50cy5kZXYk'
+
+async function init() {
+  const script = document.createElement('script')
+  script.src = 'https://valid-herring-22.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js'
+  script.setAttribute('data-clerk-publishable-key', PUBLISHABLE_KEY)
+  script.async = true
+  document.head.appendChild(script)
+
+  script.onload = async () => {
+    await window.Clerk.load()
+
+    if (window.Clerk.user) {
+      const token = await window.Clerk.session.getToken()
+      showToken(token)
+    } else {
+      window.Clerk.mountSignIn(document.getElementById('sign-in'))
+ window.Clerk.addListener(async ({ session, user }) => {
+  console.log('Listener fired, user:', user, 'session:', session)
+  if (session) {
+    const token = await session.getToken()
+    console.log('Got token:', token)
+    showToken(token)
+  }
+})
+    }
+  }
+}
+
+function showToken(token) {
+  document.getElementById('output').style.display = 'block'
+  document.getElementById('jwt').value = token
+  console.log('TOKEN:', token)
+}
+
+init()
+  </script>
+</body>
+</html>
