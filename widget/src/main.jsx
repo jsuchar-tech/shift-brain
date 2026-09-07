@@ -6,15 +6,14 @@ function mountWidget() {
   const hostEl = document.getElementById('shift-brain-root')
   if (!hostEl) return
 
-  // Create shadow root for CSS isolation
+  // Clerk needs to render in the normal DOM to get its styles
+  // We create two layers:
+  // 1. A normal DOM container for Clerk auth UI
+  // 2. A shadow DOM container for the chat UI (CSS isolated)
+
   const shadow = hostEl.attachShadow({ mode: 'open' })
 
-  // Create a container inside the shadow root
-  const container = document.createElement('div')
-  container.style.cssText = 'height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;'
-  shadow.appendChild(container)
-
-  // Inject base reset styles into shadow root
+  // Base reset inside shadow
   const style = document.createElement('style')
   style.textContent = `
     *, *::before, *::after {
@@ -37,9 +36,29 @@ function mountWidget() {
   `
   shadow.appendChild(style)
 
-  ReactDOM.createRoot(container).render(
+  const shadowContainer = document.createElement('div')
+  shadowContainer.style.cssText = 'height: 100%; width: 100%;'
+  shadow.appendChild(shadowContainer)
+
+  // Also create a normal DOM portal container for Clerk
+  // This sits outside the shadow DOM so Clerk's injected styles work
+  const clerkPortal = document.createElement('div')
+  clerkPortal.id = 'shift-brain-clerk-portal'
+  clerkPortal.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f7f9fc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  `
+  document.body.appendChild(clerkPortal)
+
+  ReactDOM.createRoot(shadowContainer).render(
     <React.StrictMode>
-      <App />
+      <App clerkPortalId="shift-brain-clerk-portal" />
     </React.StrictMode>
   )
 }
