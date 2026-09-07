@@ -6,14 +6,19 @@ function mountWidget() {
   const hostEl = document.getElementById('shift-brain-root')
   if (!hostEl) return
 
-  // Clerk needs to render in the normal DOM to get its styles
-  // We create two layers:
-  // 1. A normal DOM container for Clerk auth UI
-  // 2. A shadow DOM container for the chat UI (CSS isolated)
-
   const shadow = hostEl.attachShadow({ mode: 'open' })
 
-  // Base reset inside shadow
+  // Inject Clerk styles into shadow root by copying from document head
+  // This runs after Clerk loads its styles
+  function syncClerkStyles() {
+    const clerkStyles = document.querySelectorAll('style[data-clerk], link[data-clerk]')
+    clerkStyles.forEach(el => {
+      const clone = el.cloneNode(true)
+      shadow.appendChild(clone)
+    })
+  }
+
+  // Base reset styles
   const style = document.createElement('style')
   style.textContent = `
     *, *::before, *::after {
@@ -40,8 +45,7 @@ function mountWidget() {
   shadowContainer.style.cssText = 'height: 100%; width: 100%;'
   shadow.appendChild(shadowContainer)
 
-  // Also create a normal DOM portal container for Clerk
-  // This sits outside the shadow DOM so Clerk's injected styles work
+  // Clerk portal in normal DOM
   const clerkPortal = document.createElement('div')
   clerkPortal.id = 'shift-brain-clerk-portal'
   clerkPortal.style.cssText = `
