@@ -1,20 +1,38 @@
 import { useEffect, useRef } from 'react'
 import MessageBubble from './MessageBubble'
 
+const SCROLL_THRESHOLD_PX = 80
+
 export default function MessageList({ messages, isLoading, fontSize }) {
+  const containerRef = useRef(null)
   const bottomRef = useRef(null)
+  const shouldAutoScrollRef = useRef(true)
+
+  function handleScroll() {
+    const el = containerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    shouldAutoScrollRef.current = distanceFromBottom < SCROLL_THRESHOLD_PX
+  }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (!shouldAutoScrollRef.current) return
+    // Instant scroll while a response is streaming (avoids stacking
+    // smooth-scroll animations on every token); smooth once it settles.
+    bottomRef.current?.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' })
+  }, [messages, isLoading])
 
   return (
-    <div style={{
-      flex: 1,
-      overflowY: 'auto',
-      paddingTop: '20px',
-      paddingBottom: '8px'
-    }}>
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      style={{
+        flex: 1,
+        overflowY: 'auto',
+        paddingTop: '20px',
+        paddingBottom: '8px'
+      }}
+    >
       {messages.map(msg => (
         <MessageBubble key={msg.id} message={msg} fontSize={fontSize} />
       ))}

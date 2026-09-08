@@ -40,17 +40,6 @@ export async function syncUser(getToken, userData) {
   return res.json()
 }
 
-export async function updateLanguage(getToken, language) {
-  const headers = await getHeaders(getToken)
-  const res = await fetch(`${API_URL}/auth/me`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ language_preference: language })
-  })
-  if (!res.ok) throw new Error('Failed to update language')
-  return res.json()
-}
-
 export async function updateFontSize(getToken, fontSize) {
   const headers = await getHeaders(getToken)
   const res = await fetch(`${API_URL}/auth/me`, {
@@ -86,7 +75,6 @@ export async function streamChat({
   getToken,
   message,
   conversationId,
-  language,
   attachment = null,
   onText,
   onCitations,
@@ -104,7 +92,6 @@ export async function streamChat({
     body: JSON.stringify({
       message,
       conversation_id: conversationId,
-      language,
       attachment
     })
   })

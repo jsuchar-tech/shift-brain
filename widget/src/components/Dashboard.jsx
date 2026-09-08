@@ -205,6 +205,16 @@ function ConversationsTab({ getToken }) {
     setMessages(data.messages || [])
   }
 
+async function viewAttachment(attachmentId) {
+  try {
+    const data = await adminFetch(`/admin/attachments/${attachmentId}/url`, getToken)
+    window.open(data.url, '_blank', 'noopener,noreferrer')
+  } catch (err) {
+    console.error('Failed to open attachment:', err)
+    alert('Failed to open attachment')
+  }
+}
+
   async function exportConversation(id) {
     const token = await getToken()
     const res = await fetch(`${API_URL}/admin/conversations/${id}/export`, {
@@ -332,24 +342,32 @@ function ConversationsTab({ getToken }) {
                 </p>
                 <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#333' }}>{msg.content}</p>
 
-                {/* Attachments */}
-                {msg.attachments && msg.attachments.length > 0 && (
-                  <div style={{ marginTop: '8px' }}>
-                    {msg.attachments.map((a, i) => (
-                      <span key={i} style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        background: '#f0f7ff',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        color: '#4a90d9',
-                        marginRight: '4px'
-                      }}>
-                        📎 {a.file_name}
-                      </span>
-                    ))}
-                  </div>
-                )}
+{/* Attachments */}
+{msg.attachments && msg.attachments.length > 0 && (
+  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+    {msg.attachments.map((a, i) => (
+      <button
+        key={i}
+        onClick={() => viewAttachment(a.id)}
+        title={`${a.file_type || 'file'}${a.file_size ? ` · ${Math.round(a.file_size / 1024)}KB` : ''}`}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '2px 8px',
+          background: '#f0f7ff',
+          border: '1px solid #d6e8fc',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: '#4a90d9',
+          cursor: 'pointer'
+        }}
+      >
+        📎 {a.file_name}
+      </button>
+    ))}
+  </div>
+)}
 
                 {/* Source citations */}
                 {msg.chunks_used && msg.chunks_used.length > 0 && (

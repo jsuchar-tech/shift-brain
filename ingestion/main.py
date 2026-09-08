@@ -152,11 +152,23 @@ def run_notion_ingestion(force: bool = False):
     skipped = 0
     errors = 0
     error_pages = []
+    private_url_pages = []
 
     for page in pages:
         page_id = page['id'].replace('-', '')
         page_title = page['title'] or 'Untitled'
-        page_url = page['url']
+
+        # Prefer the public share URL when Notion provides one — it's
+        # accessible to anyone, unlike the workspace `url`, which only
+        # resolves for people with access to this Notion workspace.
+        # Falling back to `url` keeps ingestion working for pages that
+        # haven't been shared publicly, but citations built from those
+        # will be dead links for end users outside the workspace.
+        public_url = page.get('public_url')
+        page_url = public_url or page['url']
+        if not public_url:
+            private_url_pages.append(page_title)
+
         last_edited = page['last_edited_time']
         is_db_entry = page.get('is_database_entry', False)
         properties = page.get('properties', {})
@@ -229,6 +241,13 @@ def run_notion_ingestion(force: bool = False):
     if error_pages:
         print(f"\nPages that errored:")
         for p in error_pages:
+            print(f"  - {p}")
+
+    if private_url_pages:
+        print(f"\nPages ingested with a private (workspace-only) URL —")
+        print(f"citations shown to end users for these will not resolve")
+        print(f"unless the pages are shared publicly in Notion:")
+        for p in private_url_pages:
             print(f"  - {p}")
 
     print(f"================================\n")

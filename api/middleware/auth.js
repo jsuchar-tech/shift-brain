@@ -4,9 +4,6 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-/**
- * Express Middleware: requireAuth
- */
 export async function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization
@@ -16,7 +13,6 @@ export async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1]
 
-    // Verify token with Clerk
     const payload = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY,
     })
@@ -25,7 +21,6 @@ export async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Invalid token' })
     }
 
-    // Fetch user from Supabase using Clerk ID
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
@@ -42,7 +37,6 @@ export async function requireAuth(req, res, next) {
 
     req.user = user
 
-    // Non-blocking background updates (prevents slowing down the request)
     Promise.allSettled([
       supabase.from('login_history').insert({
         user_id: user.id,
@@ -59,60 +53,6 @@ export async function requireAuth(req, res, next) {
   } catch (err) {
     console.error('Auth middleware error:', err)
     return res.status(401).json({ error: 'Authentication failed' })
-  }
-}
-
-/**
- * Controller / Handler: syncUser (Target for POST /auth/sync)
- */
-export async function syncUser(req, res) {
-  try {
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' })
-    }
-
-    const token = authHeader.split(' ')[1]
-    const payload = await verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY,
-    })
-
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid token' })
-    }
-
-    const clerkUserId = payload.sub
-    // Fallbacks depending on claims provided in the JWT token
-    const email = payload.email || payload.email_address || req.body.email
-
-    if (!email) {
-      return res.status(400).json({ error: 'User email is required' })
-    }
-
-    // Fix for 500 error: Perform an UPSERT specifying conflict on 'work_email'
-    const { data: user, error } = await supabase
-      .from('users')
-      .upsert(
-        {
-          clerk_user_id: clerkUserId,
-          work_email: email,
-          last_active_at: new Date().toISOString(),
-          is_active: true,
-        },
-        { onConflict: 'work_email' } // <-- Resolves users_work_email_key constraint error
-      )
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Sync error:', error)
-      return res.status(400).json({ error: error.message })
-    }
-
-    return res.status(200).json({ success: true, user })
-  } catch (err) {
-    console.error('Auth sync error:', err)
-    return res.status(500).json({ error: 'Failed to sync user context' })
   }
 }
 

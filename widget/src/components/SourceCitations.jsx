@@ -5,7 +5,15 @@ function CitationLink({ citation }) {
   if (citation.page_number) label = label + ' - p.' + citation.page_number
   if (citation.slide_number) label = label + ' - slide ' + citation.slide_number
 
-  var url = citation.source_url || '#'
+  var url = citation.source_url
+
+  if (!url) {
+    return React.createElement(
+      'span',
+      { style: { display: 'block', fontSize: '12px', color: '#888', marginTop: '2px' } },
+      label
+    )
+  }
 
   return React.createElement(
     'a',

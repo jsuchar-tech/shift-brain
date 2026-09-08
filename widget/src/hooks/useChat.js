@@ -8,7 +8,7 @@ export function useChat(getToken) {
   const [conversationId, setConversationId] = useState(null)
   const [error, setError] = useState(null)
 
-  const sendMessage = useCallback(async (text, language, attachment = null) => {
+  const sendMessage = useCallback(async (text, attachment = null) => {
     if (!text.trim() || isLoading) return
 
     setIsLoading(true)
@@ -24,40 +24,28 @@ export function useChat(getToken) {
     }])
 
     const assistantId = Date.now() + Math.random()
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: '',
-      id: assistantId,
-      streaming: true
-    }])
+    setMessages(prev => [...prev, { role: 'assistant', content: '', id: assistantId, streaming: true }])
 
     const newConvId = await streamChat({
       getToken,
       message: text,
       conversationId,
-      language,
       attachment,
       onText: (chunk) => {
         setMessages(prev => prev.map(msg =>
-          msg.id === assistantId
-            ? { ...msg, content: msg.content + chunk }
-            : msg
+          msg.id === assistantId ? { ...msg, content: msg.content + chunk } : msg
         ))
       },
       onCitations: (cits) => {
         setCitations(cits)
         setMessages(prev => prev.map(msg =>
-          msg.id === assistantId
-            ? { ...msg, streaming: false, citations: cits }
-            : msg
+          msg.id === assistantId ? { ...msg, streaming: false, citations: cits } : msg
         ))
       },
       onDone: () => {
         setIsLoading(false)
         setMessages(prev => prev.map(msg =>
-          msg.id === assistantId
-            ? { ...msg, streaming: false }
-            : msg
+          msg.id === assistantId ? { ...msg, streaming: false } : msg
         ))
       },
       onError: (err) => {
@@ -91,14 +79,5 @@ export function useChat(getToken) {
     setCitations([])
   }, [])
 
-  return {
-    messages,
-    isLoading,
-    citations,
-    conversationId,
-    error,
-    sendMessage,
-    clearChat,
-    loadConversation
-  }
+  return { messages, isLoading, citations, conversationId, error, sendMessage, clearChat, loadConversation }
 }

@@ -261,7 +261,39 @@ router.get('/conversations/:id/export', async (req, res) => {
     res.status(500).json({ error: 'Failed to export conversation' })
   }
 })
+// GET /admin/attachments/:id/url
+// Returns a short-lived signed URL so admins can view/download a
+// user-uploaded attachment from the private storage bucket.
+router.get('/attachments/:id/url', async (req, res) => {
+  try {
+    const { id } = req.params
 
+    const { data: attachment, error } = await supabase
+      .from('message_attachments')
+      .select('storage_path, file_name, file_type')
+      .eq('id', id)
+      .single()
+
+    if (error || !attachment) {
+      return res.status(404).json({ error: 'Attachment not found' })
+    }
+
+    const { data: signed, error: signError } = await supabase.storage
+      .from('attachments')
+      .createSignedUrl(attachment.storage_path, 300) // 5 minutes
+
+    if (signError) throw signError
+
+    res.json({
+      url: signed.signedUrl,
+      file_name: attachment.file_name,
+      file_type: attachment.file_type
+    })
+  } catch (err) {
+    console.error('Attachment URL error:', err)
+    res.status(500).json({ error: 'Failed to generate attachment URL' })
+  }
+})
 // GET /admin/knowledge
 router.get('/knowledge', async (req, res) => {
   try {

@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -17,25 +18,27 @@ const PORT = process.env.PORT || 3000
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// Dynamic CORS configuration including Railway deployment domains
+app.use(helmet())
+
+// Exact-match allowlist only. The previous version trusted any
+// *.up.railway.app origin, which meant any other app on Railway's
+// shared domain (not just this one) was treated as a trusted,
+// credentialed origin — anyone with a Railway account could stand up
+// evil.up.railway.app and make authenticated cross-origin requests
+// against this API using a victim's browser session.
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4000',
   'https://shiftshack.org',
   'https://www.shiftshack.org',
-  process.env.RAILWAY_PUBLIC_DOMAIN ? `https://shift-brain-api-production.up.railway.app/` : null,
+  process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null,
   process.env.CLIENT_URL
 ].filter(Boolean)
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow server-to-server requests or CLI tools (like Postman/curl) where origin is undefined
     if (!origin) return callback(null, true)
-    
-    // Check exact matches or Railway app subdomains (*.up.railway.app)
-    const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.up.railway.app')
-    if (isAllowed) return callback(null, true)
-    
+    if (allowedOrigins.includes(origin)) return callback(null, true)
     return callback(new Error(`Not allowed by CORS: ${origin}`))
   },
   credentials: true,
@@ -45,24 +48,25 @@ app.use(cors({
 
 app.use(express.json())
 
-// Serve built frontend static files
 const publicDir = join(__dirname, 'public')
 if (existsSync(publicDir)) {
-  app.use(express.static(publicDir))
+  app.use(express.static(publicDir, {
+    setHeaders: (res, path) => {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+    }
+  }))
 }
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// API Routes
 app.use('/auth', authRoutes)
 app.use('/chat', chatRoutes)
 app.use('/admin', adminRoutes)
 app.use('/usage', usageRoutes)
 
-// SPA Fallback: Serve index.html for non-API frontend page reloads
 app.get('*', (req, res, next) => {
   const indexPath = join(publicDir, 'index.html')
   if (existsSync(indexPath)) {
@@ -71,15 +75,15 @@ app.get('*', (req, res, next) => {
   next()
 })
 
-// 404 Handler for missing API endpoints
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' })
 })
 
-// Global Error Handler
+// Global error handler — log full detail server-side, never leak
+// internal error messages (DB errors, stack traces, etc.) to clients.
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err.message || err)
-  res.status(500).json({ error: err.message || 'Internal server error' })
+  console.error('Unhandled error:', err)
+  res.status(500).json({ error: 'Internal server error' })
 })
 
 app.listen(PORT, () => {

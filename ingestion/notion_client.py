@@ -142,7 +142,8 @@ def extract_property_value(prop: dict) -> str:
 def list_all_pages() -> list[dict]:
     """
     List all pages shared with this integration.
-    Returns list of page dicts with id, title, url, last_edited_time, is_database_entry.
+    Returns list of page dicts with id, title, url, public_url,
+    last_edited_time, is_database_entry.
 
     Notion's 2025+ API represents database rows with parent.type ==
     'data_source_id' (introduced for multi-source databases), not
@@ -150,6 +151,13 @@ def list_all_pages() -> list[dict]:
     here. In either case parent['database_id'] is present directly,
     so no extra lookup is needed to find which database an entry
     belongs to.
+
+    `public_url` is only populated when a page has been explicitly
+    shared publicly via Notion's "Share to web" toggle — otherwise
+    it's None and only the workspace `url` is available (which
+    requires access to the Notion workspace to resolve). Callers
+    should prefer `public_url` when present so citations shown to
+    end users don't link to pages they can't actually open.
     """
     pages = []
     visited = set()
@@ -180,6 +188,7 @@ def list_all_pages() -> list[dict]:
                 'id': page_id,
                 'title': title,
                 'url': page.get('url', ''),
+                'public_url': page.get('public_url'),
                 'last_edited_time': page.get('last_edited_time', ''),
                 'is_database_entry': is_database_entry,
                 'database_id': parent.get('database_id') if is_database_entry else None,
@@ -192,7 +201,9 @@ def list_all_pages() -> list[dict]:
     print(f"Found {len(pages)} Notion pages total")
     db_entries = sum(1 for p in pages if p['is_database_entry'])
     standalone = len(pages) - db_entries
+    public_count = sum(1 for p in pages if p.get('public_url'))
     print(f"  {db_entries} database entries")
     print(f"  {standalone} standalone pages")
+    print(f"  {public_count} pages have a public URL available")
 
     return pages

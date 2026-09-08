@@ -5,15 +5,18 @@ import InputBar from './InputBar'
 import StarterQuestions from './StarterQuestions'
 import ConversationSidebar from './ConversationSidebar'
 import TokenUsage from './TokenUsage'
-import LanguageSelector from './LanguageSelector'
 import { useChat } from '../hooks/useChat'
 import { useTokenUsage } from '../hooks/useTokenUsage'
 import { useConversations } from '../hooks/useConversations'
-import { syncUser, updateLanguage, uploadFile, updateFontSize } from '../lib/api'
+import { syncUser, uploadFile, updateFontSize } from '../lib/api'
 
 export default function Chat({ onOpenDashboard }) {
   const { getToken } = useAuth()
   const { user } = useUser()
+  // Kept only to pick sensible starter-question copy and an input
+  // placeholder before the first message is sent — the model now
+  // detects the actual reply language per-message on the server, so
+  // there's no manual toggle to maintain here.
   const [language, setLanguage] = useState('en')
   const [synced, setSynced] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
@@ -24,7 +27,6 @@ export default function Chat({ onOpenDashboard }) {
   const { usage, refresh: refreshUsage } = useTokenUsage(getToken)
   const { conversations, refresh: refreshConversations, loadThread } = useConversations(getToken)
 
-  // Sync user to DB on first load
   useEffect(() => {
     if (!user || synced) return
     const metadata = user.publicMetadata || {}
@@ -39,7 +41,6 @@ export default function Chat({ onOpenDashboard }) {
     }).catch(console.error)
   }, [user, synced, getToken])
 
-  // Detect browser language on first load
   useEffect(() => {
     const browserLang = navigator.language?.slice(0, 2)
     const supported = ['en', 'es', 'fr', 'pt']
@@ -49,7 +50,7 @@ export default function Chat({ onOpenDashboard }) {
   async function handleSend(text) {
     const attachment = uploadedFile || null
     setUploadedFile(null)
-    await sendMessage(text, language, attachment)
+    await sendMessage(text, attachment)
     refreshUsage()
     refreshConversations()
   }
@@ -57,11 +58,6 @@ export default function Chat({ onOpenDashboard }) {
   async function handleSelectConversation(id) {
     const data = await loadThread(id)
     loadConversation(data.conversation, data.messages)
-  }
-
-  async function handleLanguageChange(lang) {
-    setLanguage(lang)
-    await updateLanguage(getToken, lang)
   }
 
   async function handleFileUpload(file) {
@@ -95,7 +91,6 @@ export default function Chat({ onOpenDashboard }) {
       background: '#f7f9fc',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     }}>
-      {/* Sidebar */}
       <ConversationSidebar
         conversations={conversations}
         onSelect={handleSelectConversation}
@@ -103,14 +98,7 @@ export default function Chat({ onOpenDashboard }) {
         currentId={conversationId}
       />
 
-      {/* Main chat area */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        {/* Header */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{
           padding: '16px 20px',
           borderBottom: '1px solid #f0f0f0',
@@ -130,7 +118,6 @@ export default function Chat({ onOpenDashboard }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <TokenUsage usage={usage} />
 
-            {/* Font size slider */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '11px', color: '#888', userSelect: 'none' }}>A</span>
               <input
@@ -145,8 +132,6 @@ export default function Chat({ onOpenDashboard }) {
               />
               <span style={{ fontSize: '16px', color: '#888', userSelect: 'none' }}>A</span>
             </div>
-
-            <LanguageSelector language={language} onChange={handleLanguageChange} />
 
             {onOpenDashboard && (
               <button
@@ -167,7 +152,6 @@ export default function Chat({ onOpenDashboard }) {
           </div>
         </div>
 
-        {/* Hero search prompt — shown when no messages */}
         {showStarters && (
           <div style={{
             flex: 1,
@@ -177,21 +161,10 @@ export default function Chat({ onOpenDashboard }) {
             justifyContent: 'center',
             padding: '40px 20px'
           }}>
-            <h2 style={{
-              fontSize: '28px',
-              fontWeight: '300',
-              color: '#1a1a2e',
-              marginBottom: '8px',
-              textAlign: 'center'
-            }}>
+            <h2 style={{ fontSize: '28px', fontWeight: '300', color: '#1a1a2e', marginBottom: '8px', textAlign: 'center' }}>
               Ask SHIFT Brain anything.
             </h2>
-            <p style={{
-              fontSize: '14px',
-              color: '#888',
-              marginBottom: '32px',
-              textAlign: 'center'
-            }}>
+            <p style={{ fontSize: '14px', color: '#888', marginBottom: '32px', textAlign: 'center' }}>
               Answers grounded in SHIFT's documents and resources
             </p>
             <div style={{ width: '100%', maxWidth: '600px' }}>
@@ -200,16 +173,10 @@ export default function Chat({ onOpenDashboard }) {
           </div>
         )}
 
-        {/* Message thread */}
         {!showStarters && (
-          <MessageList
-            messages={messages}
-            isLoading={isLoading}
-            fontSize={fontSize}
-          />
+          <MessageList messages={messages} isLoading={isLoading} fontSize={fontSize} />
         )}
 
-        {/* Error state */}
         {error && (
           <div style={{
             margin: '0 20px 8px',
@@ -224,7 +191,6 @@ export default function Chat({ onOpenDashboard }) {
           </div>
         )}
 
-        {/* Input */}
         <InputBar
           onSend={handleSend}
           isLoading={isLoading || isUploading}
@@ -236,14 +202,8 @@ export default function Chat({ onOpenDashboard }) {
       </div>
 
       <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
       `}</style>
     </div>
   )
