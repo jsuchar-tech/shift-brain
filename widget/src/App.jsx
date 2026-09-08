@@ -15,43 +15,16 @@ const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 function AppContent() {
   const { user } = useUser()
   const [view, setView] = useState('chat')
+
   const isAdmin = user?.publicMetadata?.role === 'admin'
 
+  // Also check DB role via the synced user — passed from Chat
   return (
     <ErrorBoundary>
-      <SignedOut>
-        <div style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#f7f9fc',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <h1 style={{
-              fontSize: '28px',
-              fontWeight: '300',
-              color: '#1a1a2e',
-              marginBottom: '8px',
-              fontFamily: 'inherit'
-            }}>
-              SHIFT Brain 2.0
-            </h1>
-            <p style={{ color: '#888', fontSize: '14px', fontFamily: 'inherit' }}>
-              Sign in to access SHIFT's knowledge base
-            </p>
-          </div>
-          <SignIn routing="hash" />
-        </div>
-      </SignedOut>
-      <SignedIn>
-        {view === 'dashboard' && isAdmin
-          ? <Dashboard onBack={() => setView('chat')} />
-          : <Chat onOpenDashboard={isAdmin ? () => setView('dashboard') : null} />
-        }
-      </SignedIn>
+      {view === 'dashboard' && isAdmin
+        ? <Dashboard onBack={() => setView('chat')} />
+        : <Chat onOpenDashboard={isAdmin ? () => setView('dashboard') : null} />
+      }
     </ErrorBoundary>
   )
 }
@@ -59,7 +32,34 @@ function AppContent() {
 export default function App() {
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-      <AppContent />
+      <SignedOut>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f7f9fc'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <h1 style={{
+              fontSize: '28px',
+              fontWeight: '300',
+              color: '#1a1a2e',
+              marginBottom: '8px'
+            }}>
+              Lorem Ipsum 2.0
+            </h1>
+            <p style={{ color: '#888', fontSize: '14px' }}>
+              Dolor sit amet consectetur adipiscing
+            </p>
+          </div>
+          <SignIn routing="hash" />
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <AppContent />
+      </SignedIn>
     </ClerkProvider>
   )
 }

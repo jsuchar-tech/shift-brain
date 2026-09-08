@@ -181,28 +181,7 @@ router.get('/conversations/:id', async (req, res) => {
 
     if (msgError) throw msgError
 
-    // Fetch attachments for all messages in this conversation
-    const messageIds = messages.map(m => m.id)
-    const { data: attachments } = await supabase
-      .from('message_attachments')
-      .select('*')
-      .in('message_id', messageIds)
-
-    // Map attachments onto their messages
-    const attachmentsByMessage = {}
-    attachments?.forEach(a => {
-      if (!attachmentsByMessage[a.message_id]) {
-        attachmentsByMessage[a.message_id] = []
-      }
-      attachmentsByMessage[a.message_id].push(a)
-    })
-
-    const messagesWithAttachments = messages.map(m => ({
-      ...m,
-      attachments: attachmentsByMessage[m.id] || []
-    }))
-
-    res.json({ conversation, messages: messagesWithAttachments })
+    res.json({ conversation, messages })
   } catch (err) {
     console.error('Admin conversation thread error:', err)
     res.status(500).json({ error: 'Failed to fetch conversation' })

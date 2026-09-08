@@ -46,15 +46,9 @@ app.use(cors({
 app.use(express.json())
 
 // Serve built frontend static files
-// Serve built widget files with explicit CORS headers
 const publicDir = join(__dirname, 'public')
 if (existsSync(publicDir)) {
-  app.use(express.static(publicDir, {
-    setHeaders: (res, path) => {
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
-    }
-  }))
+  app.use(express.static(publicDir))
 }
 
 // Health check
