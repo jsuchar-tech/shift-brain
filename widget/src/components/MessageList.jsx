@@ -1,31 +1,22 @@
 import { useEffect, useRef } from 'react'
 import MessageBubble from './MessageBubble'
 
-const SCROLL_THRESHOLD_PX = 80
-
 export default function MessageList({ messages, isLoading, fontSize }) {
   const containerRef = useRef(null)
-  const bottomRef = useRef(null)
-  const shouldAutoScrollRef = useRef(true)
-
-  function handleScroll() {
-    const el = containerRef.current
-    if (!el) return
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    shouldAutoScrollRef.current = distanceFromBottom < SCROLL_THRESHOLD_PX
-  }
 
   useEffect(() => {
-    if (!shouldAutoScrollRef.current) return
-    // Instant scroll while a response is streaming (avoids stacking
-    // smooth-scroll animations on every token); smooth once it settles.
-    bottomRef.current?.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' })
+    const el = containerRef.current
+    if (!el) return
+    // Set scrollTop directly on this container instead of using
+    // scrollIntoView — scrollIntoView bubbles up through every scrollable
+    // ancestor (including the host Squarespace page), which is what was
+    // causing the page-level jitter during streaming.
+    el.scrollTop = el.scrollHeight
   }, [messages, isLoading])
 
   return (
     <div
       ref={containerRef}
-      onScroll={handleScroll}
       style={{
         flex: 1,
         overflowY: 'auto',
@@ -58,7 +49,6 @@ export default function MessageList({ messages, isLoading, fontSize }) {
           </div>
         </div>
       )}
-      <div ref={bottomRef} />
     </div>
   )
 }

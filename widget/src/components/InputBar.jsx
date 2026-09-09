@@ -11,16 +11,9 @@ function PaperclipIcon({ color = '#aaa' }) {
   )
 }
 
-export default function InputBar({ onSend, isLoading, language, onFileUpload, uploadedFile, onClearFile }) {
+export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile, onClearFile }) {
   const [value, setValue] = useState('')
   const fileInputRef = useRef(null)
-
-  const placeholders = {
-    en: 'Ask SHIFT Brain anything...',
-    es: 'Pregunta lo que quieras...',
-    fr: 'Posez votre question...',
-    pt: 'Faça sua pergunta...'
-  }
 
   function handleSend() {
     if (!value.trim() || isLoading) return
@@ -50,71 +43,30 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
     <div style={{ padding: '12px 20px 20px', borderTop: '1px solid #f0f0f0', background: 'white' }}>
       {uploadedFile && (
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 10px',
-          marginBottom: '8px',
-          background: '#f0f7ff',
-          borderRadius: '8px',
-          fontSize: '13px',
-          color: '#4a90d9'
+          display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px',
+          marginBottom: '8px', background: '#f0f7ff', borderRadius: '8px',
+          fontSize: '13px', color: '#4a90d9'
         }}>
           <PaperclipIcon color="#4a90d9" />
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {uploadedFile.file_name}
           </span>
-          <button
-            onClick={onClearFile}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#aaa',
-              fontSize: '18px',
-              lineHeight: 1,
-              padding: '0 2px'
-            }}
-          >
-            ×
-          </button>
+          <button onClick={onClearFile} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: '18px', lineHeight: 1, padding: '0 2px' }}>×</button>
         </div>
       )}
 
-      <div style={{
-        display: 'flex',
-        gap: '8px',
-        alignItems: 'flex-end',
-        background: '#f7f9fc',
-        borderRadius: '12px',
-        padding: '8px 12px',
-        border: '1px solid #e2e8f0'
-      }}>
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept={ACCEPTED_TYPES}
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', background: '#f7f9fc', borderRadius: '12px', padding: '8px 12px', border: '1px solid #e2e8f0' }}>
+        <input type="file" ref={fileInputRef} accept={ACCEPTED_TYPES} onChange={handleFileChange} style={{ display: 'none' }} />
 
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
           title="Attach file (images, PDF, Word, TXT — max 10MB)"
           style={{
-            width: '32px',
-            height: '32px',
-            border: 'none',
-            background: 'transparent',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            opacity: isLoading ? 0.4 : 1,
-            borderRadius: '6px',
-            transition: 'background 0.15s'
+            width: '32px', height: '32px', border: 'none', background: 'transparent',
+            cursor: isLoading ? 'not-allowed' : 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            opacity: isLoading ? 0.4 : 1, borderRadius: '6px', transition: 'background 0.15s'
           }}
           onMouseEnter={e => { if (!isLoading) e.currentTarget.style.background = '#e8f0fe' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
@@ -126,20 +78,13 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholders[language] || placeholders.en}
+          placeholder="Ask SHIFT Brain anything... (any language)"
           disabled={isLoading}
           rows={1}
           style={{
-            flex: 1,
-            border: 'none',
-            background: 'transparent',
-            resize: 'none',
-            outline: 'none',
-            fontSize: '14px',
-            lineHeight: '1.5',
-            maxHeight: '120px',
-            overflowY: 'auto',
-            fontFamily: 'inherit'
+            flex: 1, border: 'none', background: 'transparent', resize: 'none',
+            outline: 'none', fontSize: '14px', lineHeight: '1.5',
+            maxHeight: '120px', overflowY: 'auto', fontFamily: 'inherit'
           }}
           onInput={e => {
             e.target.style.height = 'auto'
@@ -151,18 +96,11 @@ export default function InputBar({ onSend, isLoading, language, onFileUpload, up
           onClick={handleSend}
           disabled={isLoading || !value.trim()}
           style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            border: 'none',
-            background: isLoading || !value.trim() ? '#ccc' : '#4a90d9',
-            color: 'white',
+            width: '32px', height: '32px', borderRadius: '8px', border: 'none',
+            background: isLoading || !value.trim() ? '#ccc' : '#4a90d9', color: 'white',
             cursor: isLoading || !value.trim() ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            transition: 'background 0.15s'
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, transition: 'background 0.15s'
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="white">

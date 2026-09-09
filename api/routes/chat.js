@@ -270,12 +270,12 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     let inputTokens = 0
     let outputTokens = 0
 
-    const stream = anthropic.messages.stream({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      system: buildSystemPrompt(language),
-      messages
-    })
+const stream = anthropic.messages.stream({
+  model: 'claude-haiku-4-5-20251001',
+  max_tokens: 2048,
+  system: buildSystemPrompt(),   // ← was buildSystemPrompt(language)
+  messages
+})
 
     stream.on('text', (text) => {
       fullResponse += text

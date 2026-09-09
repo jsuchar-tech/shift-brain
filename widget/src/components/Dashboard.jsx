@@ -181,6 +181,47 @@ function ParticipantsTab({ getToken }) {
   )
 }
 
+function AttachmentThumb({ attachment }) {
+  const isImage = attachment.file_type && attachment.file_type.startsWith('image/') && attachment.signed_url
+
+  if (isImage) {
+    return (
+      <a
+        href={attachment.signed_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={attachment.file_name}
+      >
+        <img
+          src={attachment.signed_url}
+          alt={attachment.file_name}
+          style={{
+            maxWidth: '160px',
+            maxHeight: '160px',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0',
+            display: 'block',
+            objectFit: 'cover'
+          }}
+        />
+      </a>
+    )
+  }
+
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: '2px 8px',
+      background: '#f0f7ff',
+      borderRadius: '4px',
+      fontSize: '11px',
+      color: '#4a90d9'
+    }}>
+      📎 {attachment.file_name}
+    </span>
+  )
+}
+
 function ConversationsTab({ getToken }) {
   const [conversations, setConversations] = useState([])
   const [selected, setSelected] = useState(null)
@@ -205,16 +246,6 @@ function ConversationsTab({ getToken }) {
     setMessages(data.messages || [])
   }
 
-async function viewAttachment(attachmentId) {
-  try {
-    const data = await adminFetch(`/admin/attachments/${attachmentId}/url`, getToken)
-    window.open(data.url, '_blank', 'noopener,noreferrer')
-  } catch (err) {
-    console.error('Failed to open attachment:', err)
-    alert('Failed to open attachment')
-  }
-}
-
   async function exportConversation(id) {
     const token = await getToken()
     const res = await fetch(`${API_URL}/admin/conversations/${id}/export`, {
@@ -232,7 +263,6 @@ async function viewAttachment(attachmentId) {
 
   return (
     <div style={{ display: 'flex', gap: '16px', height: '600px' }}>
-      {/* Conversation list */}
       <div style={{
         width: '300px',
         flexShrink: 0,
@@ -289,7 +319,6 @@ async function viewAttachment(attachmentId) {
         ))}
       </div>
 
-      {/* Thread view */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {!selected ? (
           <p style={{ color: '#888', fontSize: '14px', padding: '20px' }}>
@@ -342,34 +371,14 @@ async function viewAttachment(attachmentId) {
                 </p>
                 <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#333' }}>{msg.content}</p>
 
-{/* Attachments */}
-{msg.attachments && msg.attachments.length > 0 && (
-  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-    {msg.attachments.map((a, i) => (
-      <button
-        key={i}
-        onClick={() => viewAttachment(a.id)}
-        title={`${a.file_type || 'file'}${a.file_size ? ` · ${Math.round(a.file_size / 1024)}KB` : ''}`}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px',
-          padding: '2px 8px',
-          background: '#f0f7ff',
-          border: '1px solid #d6e8fc',
-          borderRadius: '4px',
-          fontSize: '11px',
-          color: '#4a90d9',
-          cursor: 'pointer'
-        }}
-      >
-        📎 {a.file_name}
-      </button>
-    ))}
-  </div>
-)}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {msg.attachments.map((a, i) => (
+                      <AttachmentThumb key={i} attachment={a} />
+                    ))}
+                  </div>
+                )}
 
-                {/* Source citations */}
                 {msg.chunks_used && msg.chunks_used.length > 0 && (
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0' }}>
                     <p style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>Sources used:</p>

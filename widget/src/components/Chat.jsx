@@ -10,14 +10,11 @@ import { useTokenUsage } from '../hooks/useTokenUsage'
 import { useConversations } from '../hooks/useConversations'
 import { syncUser, uploadFile, updateFontSize } from '../lib/api'
 
+const UI_LANGUAGE = 'en' // Interface is always English; Claude replies in whatever language the question is asked in.
+
 export default function Chat({ onOpenDashboard }) {
   const { getToken } = useAuth()
   const { user } = useUser()
-  // Kept only to pick sensible starter-question copy and an input
-  // placeholder before the first message is sent — the model now
-  // detects the actual reply language per-message on the server, so
-  // there's no manual toggle to maintain here.
-  const [language, setLanguage] = useState('en')
   const [synced, setSynced] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -27,6 +24,7 @@ export default function Chat({ onOpenDashboard }) {
   const { usage, refresh: refreshUsage } = useTokenUsage(getToken)
   const { conversations, refresh: refreshConversations, loadThread } = useConversations(getToken)
 
+  // Sync user to DB on first load
   useEffect(() => {
     if (!user || synced) return
     const metadata = user.publicMetadata || {}
@@ -41,16 +39,10 @@ export default function Chat({ onOpenDashboard }) {
     }).catch(console.error)
   }, [user, synced, getToken])
 
-  useEffect(() => {
-    const browserLang = navigator.language?.slice(0, 2)
-    const supported = ['en', 'es', 'fr', 'pt']
-    if (supported.includes(browserLang)) setLanguage(browserLang)
-  }, [])
-
   async function handleSend(text) {
     const attachment = uploadedFile || null
     setUploadedFile(null)
-    await sendMessage(text, attachment)
+    await sendMessage(text, UI_LANGUAGE, attachment)
     refreshUsage()
     refreshConversations()
   }
@@ -98,7 +90,13 @@ export default function Chat({ onOpenDashboard }) {
         currentId={conversationId}
       />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minWidth: 0 // prevents this flex-grow column from squeezing the sidebar
+      }}>
         <div style={{
           padding: '16px 20px',
           borderBottom: '1px solid #f0f0f0',
@@ -112,7 +110,7 @@ export default function Chat({ onOpenDashboard }) {
               SHIFT Brain 2.0
             </h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
-              Ask anything about SHIFT
+              Ask anything about SHIFT — in any language
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -161,20 +159,35 @@ export default function Chat({ onOpenDashboard }) {
             justifyContent: 'center',
             padding: '40px 20px'
           }}>
-            <h2 style={{ fontSize: '28px', fontWeight: '300', color: '#1a1a2e', marginBottom: '8px', textAlign: 'center' }}>
+            <h2 style={{
+              fontSize: '28px',
+              fontWeight: '300',
+              color: '#1a1a2e',
+              marginBottom: '8px',
+              textAlign: 'center'
+            }}>
               Ask SHIFT Brain anything.
             </h2>
-            <p style={{ fontSize: '14px', color: '#888', marginBottom: '32px', textAlign: 'center' }}>
-              Answers grounded in SHIFT's documents and resources
+            <p style={{
+              fontSize: '14px',
+              color: '#888',
+              marginBottom: '32px',
+              textAlign: 'center'
+            }}>
+              Answers grounded in SHIFT's documents and resources. Ask in any language — SHIFT Brain replies in that language.
             </p>
             <div style={{ width: '100%', maxWidth: '600px' }}>
-              <StarterQuestions language={language} onSelect={text => handleSend(text)} />
+              <StarterQuestions onSelect={text => handleSend(text)} />
             </div>
           </div>
         )}
 
         {!showStarters && (
-          <MessageList messages={messages} isLoading={isLoading} fontSize={fontSize} />
+          <MessageList
+            messages={messages}
+            isLoading={isLoading}
+            fontSize={fontSize}
+          />
         )}
 
         {error && (
@@ -194,7 +207,6 @@ export default function Chat({ onOpenDashboard }) {
         <InputBar
           onSend={handleSend}
           isLoading={isLoading || isUploading}
-          language={language}
           onFileUpload={handleFileUpload}
           uploadedFile={uploadedFile}
           onClearFile={() => setUploadedFile(null)}
@@ -202,8 +214,14 @@ export default function Chat({ onOpenDashboard }) {
       </div>
 
       <style>{`
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
       `}</style>
     </div>
   )

@@ -181,13 +181,48 @@ router.get('/conversations/:id', async (req, res) => {
 
     if (msgError) throw msgError
 
-    res.json({ conversation, messages })
+    const messageIds = messages.map(m => m.id)
+    const { data: attachments } = await supabase
+      .from('message_attachments')
+      .select('*')
+      .in('message_id', messageIds)
+
+    // Attachments are stored privately in Supabase Storage — generate a
+    // short-lived signed URL per attachment so images can render inline
+    // in the dashboard instead of just showing a filename.
+    const attachmentsWithUrls = await Promise.all(
+      (attachments || []).map(async (a) => {
+        try {
+          const { data: signed, error: signError } = await supabase.storage
+            .from('attachments')
+            .createSignedUrl(a.storage_path, 60 * 60) // 1 hour
+
+          return { ...a, signed_url: signError ? null : (signed?.signedUrl || null) }
+        } catch {
+          return { ...a, signed_url: null }
+        }
+      })
+    )
+
+    const attachmentsByMessage = {}
+    attachmentsWithUrls.forEach(a => {
+      if (!attachmentsByMessage[a.message_id]) {
+        attachmentsByMessage[a.message_id] = []
+      }
+      attachmentsByMessage[a.message_id].push(a)
+    })
+
+    const messagesWithAttachments = messages.map(m => ({
+      ...m,
+      attachments: attachmentsByMessage[m.id] || []
+    }))
+
+    res.json({ conversation, messages: messagesWithAttachments })
   } catch (err) {
     console.error('Admin conversation thread error:', err)
     res.status(500).json({ error: 'Failed to fetch conversation' })
   }
 })
-
 // PATCH /admin/conversations/:id/flag
 router.patch('/conversations/:id/flag', async (req, res) => {
   try {

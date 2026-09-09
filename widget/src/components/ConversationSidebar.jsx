@@ -2,6 +2,7 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
   return (
     <div style={{
       width: '240px',
+      flexShrink: 0,
       borderRight: '1px solid #f0f0f0',
       display: 'flex',
       flexDirection: 'column',
