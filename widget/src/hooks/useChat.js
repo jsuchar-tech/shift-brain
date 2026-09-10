@@ -16,12 +16,12 @@ export function useChat(getToken) {
     setCitations([])
 
     const userId = Date.now()
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: text,
-      id: userId,
-      attachments: attachment ? [{ file_name: attachment.file_name }] : []
-    }])
+setMessages(prev => [...prev, {
+  role: 'user',
+  content: text,
+  id: userId,
+  attachments: (attachment && attachment.file_name) ? [{ file_name: attachment.file_name }] : []
+}])
 
     const assistantId = Date.now() + Math.random()
     setMessages(prev => [...prev, { role: 'assistant', content: '', id: assistantId, streaming: true }])

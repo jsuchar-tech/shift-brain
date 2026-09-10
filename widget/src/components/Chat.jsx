@@ -39,13 +39,13 @@ export default function Chat({ onOpenDashboard }) {
     }).catch(console.error)
   }, [user, synced, getToken])
 
-  async function handleSend(text) {
-    const attachment = uploadedFile || null
-    setUploadedFile(null)
-    await sendMessage(text, UI_LANGUAGE, attachment)
-    refreshUsage()
-    refreshConversations()
-  }
+async function handleSend(text) {
+  const attachment = (uploadedFile && uploadedFile.file_name) ? uploadedFile : null
+  setUploadedFile(null)
+  await sendMessage(text, UI_LANGUAGE, attachment)
+  refreshUsage()
+  refreshConversations()
+}
 
   async function handleSelectConversation(id) {
     const data = await loadThread(id)
