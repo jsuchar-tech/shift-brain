@@ -313,6 +313,95 @@ const stream = anthropic.messages.stream({
   }
 })
 
-// GET /chat/conversations and GET /chat/conversations/:id — unchanged from original
+// GET /chat/conversations
+router.get('/conversations', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('id, title, language, created_at, updated_at')
+      .eq('user_id', req.user.id)
+      .order('updated_at', { ascending: false })
+      .limit(50)
+
+    if (error) throw error
+
+    res.json({
+      conversations: data || []
+    })
+  } catch (err) {
+    console.error('Conversations error:', err)
+    res.status(500).json({
+      error: 'Failed to fetch conversations'
+    })
+  }
+})
+
+// GET /chat/conversations/:id
+router.get('/conversations/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single()
+
+    if (convError || !conversation) {
+      return res.status(404).json({
+        error: 'Conversation not found'
+      })
+    }
+
+    const { data: messages, error: msgError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', id)
+      .order('created_at', { ascending: true })
+
+    if (msgError) throw msgError
+
+    const messageIds = messages.map(m => m.id)
+
+    let attachments = []
+
+    if (messageIds.length > 0) {
+      const { data, error: attachmentError } = await supabase
+        .from('message_attachments')
+        .select('*')
+        .in('message_id', messageIds)
+
+      if (attachmentError) throw attachmentError
+
+      attachments = data || []
+    }
+
+    const attachmentsByMessage = {}
+
+    attachments.forEach(a => {
+      if (!attachmentsByMessage[a.message_id]) {
+        attachmentsByMessage[a.message_id] = []
+      }
+
+      attachmentsByMessage[a.message_id].push(a)
+    })
+
+    const messagesWithAttachments = messages.map(m => ({
+      ...m,
+      attachments: attachmentsByMessage[m.id] || []
+    }))
+
+    res.json({
+      conversation,
+      messages: messagesWithAttachments
+    })
+  } catch (err) {
+    console.error('Conversation thread error:', err)
+    res.status(500).json({
+      error: 'Failed to fetch conversation'
+    })
+  }
+})
 
 export default router
