@@ -12,10 +12,6 @@ export default function ConversationSidebar({
     <aside className={`brain-sidebar ${open ? 'is-open' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
       <div className="brain-sidebar__content">
         <div className="brain-sidebar__title">Your chat history</div>
-        <button className="brain-sidebar__dots" onClick={onNew} aria-label="Start a new chat">
-          <span>⋮</span>
-        </button>
-
         <div className="brain-sidebar__list">
           {conversations.length === 0 && (
             <p className="brain-sidebar__empty">No conversations yet</p>
@@ -40,7 +36,7 @@ export default function ConversationSidebar({
         aria-label={collapsed ? 'Show chat history' : 'Hide chat history'}
         title={collapsed ? 'Show chat history' : 'Hide chat history'}
       >
-        <img src="https://www.figma.com/api/mcp/asset/688f4202-cb5b-46a2-9189-ab4c9ca9d134.svg" alt="" />
+        <span className="brain-sidebar__arrow" aria-hidden="true" />
       </button>
 
       <button className="brain-sidebar__logout" type="button" onClick={onLogout}>Log out</button>
@@ -89,21 +85,6 @@ export default function ConversationSidebar({
           line-height: 34px;
         }
 
-        .brain-sidebar__dots {
-          position: absolute;
-          top: 88px;
-          right: 8px;
-          width: 18px;
-          height: 24px;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          color: var(--pink, #ff008f);
-          font-size: 17px;
-          line-height: 18px;
-          cursor: pointer;
-        }
-
         .brain-sidebar__collapse {
           position: absolute;
           top: 14px;
@@ -122,14 +103,18 @@ export default function ConversationSidebar({
           cursor: pointer;
         }
 
-        .brain-sidebar__collapse img {
-          width: 33px;
-          height: 33px;
-          object-fit: contain;
+        .brain-sidebar__arrow {
+          width: 9px;
+          height: 9px;
+          border-left: 1.5px solid var(--pink, #ff008f);
+          border-bottom: 1.5px solid var(--pink, #ff008f);
+          transform: rotate(45deg);
+          margin-left: 4px;
         }
 
-        .brain-sidebar.is-collapsed .brain-sidebar__collapse img {
-          transform: rotate(180deg);
+        .brain-sidebar.is-collapsed .brain-sidebar__arrow {
+          transform: rotate(225deg);
+          margin-left: -4px;
         }
 
         .brain-sidebar__list {

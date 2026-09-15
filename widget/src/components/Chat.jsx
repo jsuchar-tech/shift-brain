@@ -10,8 +10,6 @@ import { syncUser, uploadFile, updateFontSize } from '../lib/api'
 
 const ASSETS = {
   brain: 'https://www.figma.com/api/mcp/asset/09ee25a7-b3ca-4128-96ee-5d6f95faff76.png',
-  back: 'https://www.figma.com/api/mcp/asset/688f4202-cb5b-46a2-9189-ab4c9ca9d134.svg',
-  dots: 'https://www.figma.com/api/mcp/asset/3f814210-e300-45cd-8290-ee32990bf890.svg',
   plusBase: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
   plusIcon: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
   sendBase: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
@@ -144,7 +142,7 @@ export default function Chat({ onOpenDashboard }) {
             onClick={() => setSidebarOpen(open => !open)}
             aria-label={sidebarOpen ? 'Close chat history' : 'Open chat history'}
           >
-            <img src={ASSETS.back} alt="" />
+            <span className="brain-chat__arrow" aria-hidden="true" />
           </button>
 
           <div className="brain-chat__controls">
@@ -155,7 +153,8 @@ export default function Chat({ onOpenDashboard }) {
                 onClick={() => handleFontSizeChange(-1)}
                 disabled={fontSize <= 12}
                 aria-label="Decrease text size"
-              >A-</button>
+              >A−</button>
+              <span className="brain-chat__font-label" aria-hidden="true">A</span>
               <button
                 type="button"
                 className="brain-chat__font-button"
@@ -233,7 +232,7 @@ export default function Chat({ onOpenDashboard }) {
           right: clamp(19px, calc(19px + (100vw - 768px) * .112), 72px);
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: right;
           pointer-events: none;
         }
 
@@ -253,10 +252,13 @@ export default function Chat({ onOpenDashboard }) {
           cursor: pointer;
         }
 
-        .brain-chat__sidebar-toggle img {
-          width: 33px;
-          height: 33px;
-          object-fit: contain;
+        .brain-chat__arrow {
+          width: 9px;
+          height: 9px;
+          border-left: 1.5px solid var(--pink);
+          border-bottom: 1.5px solid var(--pink);
+          transform: rotate(45deg);
+          margin-left: 4px;
         }
 
         .brain-chat__controls {
@@ -292,6 +294,16 @@ export default function Chat({ onOpenDashboard }) {
           color: var(--muted);
           font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           cursor: pointer;
+        }
+
+        .brain-chat__font-label {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex: 1;
+          color: var(--muted);
+          font: 600 11px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          pointer-events: none;
         }
 
         .brain-chat__font-button:hover:not(:disabled) { color: var(--pink); }
@@ -390,11 +402,15 @@ export default function Chat({ onOpenDashboard }) {
             left: 30px;
             right: 98px;
           }
-          .brain-chat__mobile-sidebar-toggle { display: flex; }
+          .brain-chat__mobile-sidebar-toggle {
+            position: absolute;
+            left: 0;
+            top: 0;
+            display: flex;
+          }
           .brain-chat__sidebar-reopen { display: none; }
           .brain-chat__controls { gap: 8px; }
-          .brain-chat__controls .brain-chat__dashboard,
-          .brain-chat__controls > div:first-child { display: none; }
+          .brain-chat__controls .brain-chat__dashboard { display: none; }
           .brain-chat__brain { transform: translateX(0); }
           .brain-chat__welcome h1 {
             left: 50%;
