@@ -3,15 +3,7 @@ import { useState, useRef } from 'react'
 const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt'
 const MAX_SIZE_MB = 10
 
-function PaperclipIcon({ color = '#aaa' }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-    </svg>
-  )
-}
-
-export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile, onClearFile }) {
+export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile, onClearFile, assets, showWelcome }) {
   const [value, setValue] = useState('')
   const fileInputRef = useRef(null)
 
@@ -29,7 +21,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
   }
 
   function handleFileChange(e) {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (!file) return
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       alert(`File too large. Maximum size is ${MAX_SIZE_MB}MB.`)
@@ -40,75 +32,179 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
   }
 
   return (
-    <div style={{ padding: '12px 20px 20px', borderTop: '1px solid #f0f0f0', background: 'white' }}>
+    <div className={`brain-input ${showWelcome ? 'is-welcome' : 'is-active'}`}>
       {uploadedFile && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px',
-          marginBottom: '8px', background: '#f0f7ff', borderRadius: '8px',
-          fontSize: '13px', color: '#4a90d9'
-        }}>
-          <PaperclipIcon color="#4a90d9" />
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {uploadedFile.file_name}
-          </span>
-          <button onClick={onClearFile} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: '18px', lineHeight: 1, padding: '0 2px' }}>×</button>
+        <div className="brain-input__attachment">
+          <span>{uploadedFile.file_name}</span>
+          <button onClick={onClearFile} type="button">×</button>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', background: '#f7f9fc', borderRadius: '12px', padding: '8px 12px', border: '1px solid #e2e8f0' }}>
-        <input type="file" ref={fileInputRef} accept={ACCEPTED_TYPES} onChange={handleFileChange} style={{ display: 'none' }} />
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
-          title="Attach file (images, PDF, Word, TXT — max 10MB)"
-          style={{
-            width: '32px', height: '32px', border: 'none', background: 'transparent',
-            cursor: isLoading ? 'not-allowed' : 'pointer', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            opacity: isLoading ? 0.4 : 1, borderRadius: '6px', transition: 'background 0.15s'
-          }}
-          onMouseEnter={e => { if (!isLoading) e.currentTarget.style.background = '#e8f0fe' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-        >
-          <PaperclipIcon color={uploadedFile ? '#4a90d9' : '#999'} />
-        </button>
+      <div className="brain-input__box">
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept={ACCEPTED_TYPES}
+          onChange={handleFileChange}
+          hidden
+        />
 
         <textarea
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask SHIFT Brain anything... (any language)"
+          placeholder="Chat with Brain"
           disabled={isLoading}
           rows={1}
-          style={{
-            flex: 1, border: 'none', background: 'transparent', resize: 'none',
-            outline: 'none', fontSize: '14px', lineHeight: '1.5',
-            maxHeight: '120px', overflowY: 'auto', fontFamily: 'inherit'
-          }}
-          onInput={e => {
-            e.target.style.height = 'auto'
-            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
-          }}
+          aria-label="Chat with Brain"
         />
 
-        <button
-          onClick={handleSend}
-          disabled={isLoading || !value.trim()}
-          style={{
-            width: '32px', height: '32px', borderRadius: '8px', border: 'none',
-            background: isLoading || !value.trim() ? '#ccc' : '#4a90d9', color: 'white',
-            cursor: isLoading || !value.trim() ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, transition: 'background 0.15s'
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-            <path d="M12 19V5M5 12l7-7 7 7"/>
-            <path d="M12 5l7 7M12 5l-7 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-          </svg>
-        </button>
+        <div className="brain-input__footer">
+          <button
+            className="brain-input__icon brain-input__icon--plus"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            type="button"
+            aria-label="Attach file"
+          >
+            <span className="brain-input__asset-icon"><img src={assets.plusBase} alt="" /><img className="brain-input__asset-glyph" src={assets.plusIcon} alt="" /></span>
+          </button>
+
+          <div className="brain-input__tokens">You have 30,000 token left</div>
+
+          <button
+            className={`brain-input__icon brain-input__icon--send ${(!value.trim() || isLoading) ? 'is-disabled' : ''}`}
+            onClick={handleSend}
+            disabled={isLoading || !value.trim()}
+            type="button"
+            aria-label="Send message"
+          >
+            <span className="brain-input__asset-icon"><img src={assets.sendBase} alt="" /><img className="brain-input__asset-glyph" src={assets.sendIcon} alt="" /></span>
+          </button>
+        </div>
       </div>
+
+      <style>{`
+        .brain-input {
+          position: absolute;
+          z-index: 6;
+          width: 396px;
+          height: 140px;
+          left: calc(50% - 29px);
+          transform: translateX(-50%);
+        }
+
+        .brain-input.is-welcome { top: 381px; }
+        .brain-input.is-active {
+          left: calc(50% - 29px);
+          right: auto;
+          bottom: 18px;
+          top: auto;
+        }
+
+        .brain-input__box {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          padding: 17px 14px 12px;
+          background: #fff;
+          border-radius: 10px;
+          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+        }
+
+        .brain-input textarea {
+          display: block;
+          width: 100%;
+          height: 62px;
+          padding: 0;
+          border: 0;
+          outline: 0;
+          resize: none;
+          overflow: hidden;
+          background: transparent;
+          color: #0b0b2d;
+          font: 17px/31px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .brain-input textarea::placeholder { color: #b7b7b7; opacity: 1; }
+
+        .brain-input__footer {
+          position: absolute;
+          left: 4.55%;
+          right: 5.45%;
+          bottom: 0;
+          display: grid;
+          grid-template-columns: 33px minmax(0, 1fr) 33px;
+          align-items: center;
+          gap: 52px;
+          padding: 12px 0;
+        }
+
+        .brain-input__icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 33px;
+          height: 33px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .brain-input__asset-icon { position: relative; display: block; width: 33px; height: 33px; }
+        .brain-input__asset-icon > img { position: absolute; inset: 0; width: 33px; height: 33px; object-fit: contain; }
+        .brain-input__asset-icon > .brain-input__asset-glyph { inset: 8px; width: 17px; height: 17px; }
+        .brain-input__icon--send { justify-self: end; }
+        .brain-input__icon--send.is-disabled { opacity: .45; cursor: default; }
+        .brain-input__tokens {
+          justify-self: center;
+          width: 127px;
+          color: #0b0b2d;
+          font: 11px/28px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .brain-input__attachment {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 0;
+          right: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          background: #fff;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,.06);
+          color: #666;
+          font-size: 12px;
+        }
+        .brain-input__attachment span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .brain-input__attachment button { border: 0; background: none; color: #aaa; cursor: pointer; font-size: 18px; }
+
+        @media (min-width: 768px) and (max-width: 900px) {
+          .brain-input { left: calc(50% + 4px); }
+          .brain-input.is-active { left: calc(50% + 4px); }
+        }
+
+        @media (max-width: 767px) {
+          .brain-input {
+            left: 50%;
+            width: calc(100% - 60px);
+            max-width: 330px;
+            height: 106px;
+          }
+          .brain-input.is-welcome { top: auto; bottom: 38px; }
+          .brain-input.is-active { bottom: 20px; }
+          .brain-input__box { padding: 17px 14px 8px; }
+          .brain-input textarea { height: 42px; font-size: 14px; line-height: 28px; }
+          .brain-input__footer { gap: 22px; padding: 7px 0; }
+          .brain-input__tokens { width: 127px; font-size: 10px; }
+        }
+      `}</style>
     </div>
   )
 }
