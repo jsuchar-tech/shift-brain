@@ -3,7 +3,6 @@ import { useAuth, useUser } from '@clerk/clerk-react'
 import MessageList from './MessageList'
 import InputBar from './InputBar'
 import ConversationSidebar from './ConversationSidebar'
-import TokenUsage from './TokenUsage'
 import { useChat } from '../hooks/useChat'
 import { useTokenUsage } from '../hooks/useTokenUsage'
 import { useConversations } from '../hooks/useConversations'
@@ -99,10 +98,16 @@ export default function Chat({ onOpenDashboard }) {
     }
   }
 
-  async function handleFontSizeChange(size) {
-    setFontSize(size)
+  async function handleFontSizeChange(delta) {
+    const minFontSize = 12
+    const maxFontSize = 24
+    const nextSize = Math.min(maxFontSize, Math.max(minFontSize, fontSize + delta))
+
+    if (nextSize === fontSize) return
+
+    setFontSize(nextSize)
     try {
-      await updateFontSize(getToken, size)
+      await updateFontSize(getToken, nextSize)
     } catch (err) {
       console.error('Failed to save font size:', err)
     }
@@ -143,25 +148,20 @@ export default function Chat({ onOpenDashboard }) {
           </button>
 
           <div className="brain-chat__controls">
-            <TokenUsage usage={usage} compact />
             <div className="brain-chat__font-control" aria-label="Text size">
               <button
                 type="button"
-                className={`brain-chat__font-button ${fontSize <= 14 ? 'is-active' : ''}`}
-                onClick={() => handleFontSizeChange(14)}
-                aria-label="Small text"
+                className="brain-chat__font-button"
+                onClick={() => handleFontSizeChange(-1)}
+                disabled={fontSize <= 12}
+                aria-label="Decrease text size"
               >A-</button>
               <button
                 type="button"
-                className={`brain-chat__font-button ${fontSize > 14 && fontSize < 18 ? 'is-active' : ''}`}
-                onClick={() => handleFontSizeChange(16)}
-                aria-label="Medium text"
-              >A</button>
-              <button
-                type="button"
-                className={`brain-chat__font-button ${fontSize >= 18 ? 'is-active' : ''}`}
-                onClick={() => handleFontSizeChange(18)}
-                aria-label="Large text"
+                className="brain-chat__font-button"
+                onClick={() => handleFontSizeChange(1)}
+                disabled={fontSize >= 24}
+                aria-label="Increase text size"
               >A+</button>
             </div>
             {onOpenDashboard && (
@@ -195,6 +195,7 @@ export default function Chat({ onOpenDashboard }) {
           onClearFile={() => setUploadedFile(null)}
           assets={ASSETS}
           showWelcome={showWelcome}
+          tokensRemaining={usage?.daily_remaining}
         />
       </main>
 
@@ -293,10 +294,10 @@ export default function Chat({ onOpenDashboard }) {
           cursor: pointer;
         }
 
-        .brain-chat__font-button:hover { color: var(--pink); }
-        .brain-chat__font-button.is-active {
-          background: var(--pink);
-          color: #fff;
+        .brain-chat__font-button:hover:not(:disabled) { color: var(--pink); }
+        .brain-chat__font-button:disabled {
+          opacity: .35;
+          cursor: default;
         }
 
         .brain-chat__dashboard {

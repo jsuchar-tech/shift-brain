@@ -7,22 +7,13 @@ export default function MessageList({ messages, isLoading, fontSize }) {
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    // Set scrollTop directly on this container instead of using
-    // scrollIntoView — scrollIntoView bubbles up through every scrollable
-    // ancestor (including the host Squarespace page), which is what was
-    // causing the page-level jitter during streaming.
     el.scrollTop = el.scrollHeight
   }, [messages, isLoading])
 
   return (
     <div
       ref={containerRef}
-      style={{
-        flex: 1,
-        overflowY: 'auto',
-        paddingTop: '20px',
-        paddingBottom: '8px'
-      }}
+      className="brain-message-list"
     >
       {messages.map(msg => (
         <MessageBubble key={msg.id} message={msg} fontSize={fontSize} />
@@ -49,6 +40,36 @@ export default function MessageList({ messages, isLoading, fontSize }) {
           </div>
         </div>
       )}
+
+      <style>{`
+        .brain-message-list {
+          position: absolute;
+          z-index: 2;
+          top: 58px;
+          left: 0;
+          right: 0;
+          bottom: 176px;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding-top: 20px;
+          padding-bottom: 8px;
+        }
+
+        .brain-message-list::-webkit-scrollbar { width: 5px; }
+        .brain-message-list::-webkit-scrollbar-thumb {
+          background: rgba(11,11,45,.16);
+          border-radius: 999px;
+        }
+
+        @media (max-width: 767px) {
+          .brain-message-list {
+            top: 52px;
+            bottom: 142px;
+            padding-top: 12px;
+          }
+        }
+      `}</style>
     </div>
   )
 }
