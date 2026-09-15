@@ -13,7 +13,7 @@ function mountWidget() {
 
   const style = document.createElement('style')
   style.textContent = `
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     :host { display: block; height: 100%; width: 100%; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     button, input, textarea, select { font-family: inherit; }
     a { text-decoration: none; }

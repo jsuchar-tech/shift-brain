@@ -1,6 +1,15 @@
-export default function ConversationSidebar({ conversations, onSelect, onNew, currentId, open = false }) {
+export default function ConversationSidebar({
+  conversations,
+  onSelect,
+  onNew,
+  currentId,
+  open = false,
+  collapsed = false,
+  onToggleCollapse,
+  onLogout
+}) {
   return (
-    <aside className={`brain-sidebar ${open ? 'is-open' : ''}`}>
+    <aside className={`brain-sidebar ${open ? 'is-open' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
       <div className="brain-sidebar__content">
         <div className="brain-sidebar__title">Your chat history</div>
         <button className="brain-sidebar__dots" onClick={onNew} aria-label="Start a new chat">
@@ -24,7 +33,17 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
         </div>
       </div>
 
-      <button className="brain-sidebar__logout" type="button">Log out</button>
+      <button
+        className="brain-sidebar__collapse"
+        type="button"
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? 'Show chat history' : 'Hide chat history'}
+        title={collapsed ? 'Show chat history' : 'Hide chat history'}
+      >
+        <img src="https://www.figma.com/api/mcp/asset/688f4202-cb5b-46a2-9189-ab4c9ca9d134.svg" alt="" />
+      </button>
+
+      <button className="brain-sidebar__logout" type="button" onClick={onLogout}>Log out</button>
 
       <style>{`
         .brain-sidebar {
@@ -37,6 +56,14 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
           flex-direction: column;
           background: var(--cream, #fdfbef);
           border-right: 1px solid #deddd5;
+          transition: flex-basis .22s ease, width .22s ease, transform .2s ease;
+        }
+
+        .brain-sidebar.is-collapsed {
+          flex-basis: 0;
+          width: 0;
+          border-right: 0;
+          overflow: visible;
         }
 
         .brain-sidebar__content {
@@ -45,6 +72,14 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
           min-height: 0;
           overflow: hidden;
           padding: 16px 0 0;
+          opacity: 1;
+          transition: opacity .12s ease;
+        }
+
+        .brain-sidebar.is-collapsed .brain-sidebar__content,
+        .brain-sidebar.is-collapsed .brain-sidebar__logout {
+          opacity: 0;
+          pointer-events: none;
         }
 
         .brain-sidebar__title {
@@ -69,6 +104,34 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
           cursor: pointer;
         }
 
+        .brain-sidebar__collapse {
+          position: absolute;
+          top: 14px;
+          right: -17px;
+          z-index: 25;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 33px;
+          height: 33px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+          cursor: pointer;
+        }
+
+        .brain-sidebar__collapse img {
+          width: 33px;
+          height: 33px;
+          object-fit: contain;
+        }
+
+        .brain-sidebar.is-collapsed .brain-sidebar__collapse img {
+          transform: rotate(180deg);
+        }
+
         .brain-sidebar__list {
           height: calc(100% - 74px);
           margin-top: 35px;
@@ -81,7 +144,7 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
           display: block;
           width: 100%;
           height: 33px;
-          margin: 0 0 0;
+          margin: 0;
           padding: 0;
           border: 0;
           background: transparent;
@@ -117,6 +180,30 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
           cursor: pointer;
         }
 
+        .brain-sidebar__reopen {
+          position: absolute;
+          top: 14px;
+          left: 14px;
+          z-index: 25;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 33px;
+          height: 33px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+          cursor: pointer;
+        }
+
+        .brain-sidebar__reopen img {
+          width: 33px;
+          height: 33px;
+          transform: rotate(180deg);
+        }
+
         @media (max-width: 767px) {
           .brain-sidebar {
             position: absolute;
@@ -124,12 +211,16 @@ export default function ConversationSidebar({ conversations, onSelect, onNew, cu
             top: 0;
             bottom: 0;
             width: min(82vw, 300px);
+            flex-basis: min(82vw, 300px);
             transform: translateX(-102%);
             box-shadow: 8px 0 30px rgba(0,0,0,.08);
             transition: transform .2s ease;
+            border-right: 1px solid #deddd5;
           }
           .brain-sidebar.is-open { transform: translateX(0); }
+          .brain-sidebar.is-collapsed { width: min(82vw, 300px); flex-basis: min(82vw, 300px); }
           .brain-sidebar__title { margin-left: 24px; }
+          .brain-sidebar__collapse { display: none; }
         }
       `}</style>
     </aside>

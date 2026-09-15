@@ -20,13 +20,14 @@ const ASSETS = {
 }
 
 export default function Chat({ onOpenDashboard }) {
-  const { getToken } = useAuth()
+  const { getToken, signOut } = useAuth()
   const { user } = useUser()
   const [synced, setSynced] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
   const [fontSize, setFontSize] = useState(16)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const {
     messages,
@@ -90,6 +91,14 @@ export default function Chat({ onOpenDashboard }) {
     }
   }
 
+  async function handleLogout() {
+    try {
+      await signOut()
+    } finally {
+      window.location.reload()
+    }
+  }
+
   async function handleFontSizeChange(size) {
     setFontSize(size)
     try {
@@ -118,12 +127,15 @@ export default function Chat({ onOpenDashboard }) {
         }}
         currentId={conversationId}
         open={sidebarOpen}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(collapsed => !collapsed)}
+        onLogout={handleLogout}
       />
 
-      <main className="brain-chat__main">
+      <main className={`brain-chat__main ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}>
         <div className="brain-chat__top-controls">
           <button
-            className="brain-chat__sidebar-toggle"
+            className="brain-chat__sidebar-toggle brain-chat__mobile-sidebar-toggle"
             onClick={() => setSidebarOpen(open => !open)}
             aria-label={sidebarOpen ? 'Close chat history' : 'Open chat history'}
           >
@@ -133,19 +145,23 @@ export default function Chat({ onOpenDashboard }) {
           <div className="brain-chat__controls">
             <TokenUsage usage={usage} compact />
             <div className="brain-chat__font-control" aria-label="Text size">
-              <span>A-</span>
               <button
                 type="button"
-                className="brain-chat__font-button"
-                onClick={() => handleFontSizeChange(Math.max(12, fontSize - 1))}
-                aria-label="Decrease text size"
+                className={`brain-chat__font-button ${fontSize <= 14 ? 'is-active' : ''}`}
+                onClick={() => handleFontSizeChange(14)}
+                aria-label="Small text"
               >A-</button>
-              <span className="brain-chat__font-current">A</span>
               <button
                 type="button"
-                className="brain-chat__font-button"
-                onClick={() => handleFontSizeChange(Math.min(22, fontSize + 1))}
-                aria-label="Increase text size"
+                className={`brain-chat__font-button ${fontSize > 14 && fontSize < 18 ? 'is-active' : ''}`}
+                onClick={() => handleFontSizeChange(16)}
+                aria-label="Medium text"
+              >A</button>
+              <button
+                type="button"
+                className={`brain-chat__font-button ${fontSize >= 18 ? 'is-active' : ''}`}
+                onClick={() => handleFontSizeChange(18)}
+                aria-label="Large text"
               >A+</button>
             </div>
             {onOpenDashboard && (
@@ -212,7 +228,7 @@ export default function Chat({ onOpenDashboard }) {
           position: absolute;
           z-index: 20;
           top: 14px;
-          left: -46px;
+          left: 14px;
           right: clamp(19px, calc(19px + (100vw - 768px) * .112), 72px);
           display: flex;
           align-items: center;
@@ -249,13 +265,12 @@ export default function Chat({ onOpenDashboard }) {
         }
 
         .brain-chat__font-control {
-          position: relative;
           display: flex;
           align-items: center;
           justify-content: space-between;
           width: 84px;
           height: 30px;
-          padding: 0 10px;
+          padding: 2px;
           border: 1px solid var(--pink);
           border-radius: 999px;
           color: var(--muted);
@@ -263,29 +278,23 @@ export default function Chat({ onOpenDashboard }) {
           font-weight: 600;
         }
 
-        .brain-chat__font-control > span:first-child,
-        .brain-chat__font-button:first-of-type { color: var(--muted); }
-
         .brain-chat__font-button {
-          border: 0;
-          padding: 0;
-          background: transparent;
-          color: var(--muted);
-          font: inherit;
-          cursor: pointer;
-        }
-
-        .brain-chat__font-current {
-          position: absolute;
-          top: 0;
-          left: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
-          transform: translateX(-50%);
+          width: 24px;
+          height: 24px;
+          padding: 0;
+          border: 0;
           border-radius: 50%;
+          background: transparent;
+          color: var(--muted);
+          font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          cursor: pointer;
+        }
+
+        .brain-chat__font-button:hover { color: var(--pink); }
+        .brain-chat__font-button.is-active {
           background: var(--pink);
           color: #fff;
         }
@@ -299,6 +308,8 @@ export default function Chat({ onOpenDashboard }) {
           font-size: 11px;
           cursor: pointer;
         }
+
+        .brain-chat__mobile-sidebar-toggle { display: none; }
 
         .brain-chat__welcome {
           position: absolute;
@@ -350,6 +361,19 @@ export default function Chat({ onOpenDashboard }) {
 
         .brain-chat__sidebar-backdrop { display: none; }
 
+        .brain-chat__main.is-sidebar-collapsed .brain-chat__brain {
+          transform: translateX(0);
+        }
+
+        .brain-chat__main.is-sidebar-collapsed .brain-chat__welcome h1 {
+          left: 50%;
+        }
+
+        .brain-chat__main.is-sidebar-collapsed .brain-input,
+        .brain-chat__main.is-sidebar-collapsed .brain-input.is-active {
+          left: 50%;
+        }
+
         @media (max-width: 767px) {
           .brain-chat__main { border-top: 0; }
           .brain-chat__sidebar-backdrop {
@@ -365,6 +389,8 @@ export default function Chat({ onOpenDashboard }) {
             left: 30px;
             right: 98px;
           }
+          .brain-chat__mobile-sidebar-toggle { display: flex; }
+          .brain-chat__sidebar-reopen { display: none; }
           .brain-chat__controls { gap: 8px; }
           .brain-chat__controls .brain-chat__dashboard,
           .brain-chat__controls > div:first-child { display: none; }
