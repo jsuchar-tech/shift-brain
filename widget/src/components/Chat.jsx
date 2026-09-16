@@ -289,6 +289,8 @@ export default function Chat({ onOpenDashboard, settings }) {
           color: var(--muted);
           font-size: 10px;
           font-weight: 600;
+          background: #fff;
+          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
         }
 
         .brain-chat__font-button {
@@ -300,7 +302,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           padding: 0;
           border: 0;
           border-radius: 50%;
-          background: transparent;
+          background: #fff;
           color: var(--muted);
           font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           cursor: pointer;
@@ -326,7 +328,8 @@ export default function Chat({ onOpenDashboard, settings }) {
           border: 1px solid var(--pink);
           border-radius: 999px;
           padding: 6px 12px;
-          background: transparent;
+          background: #fff;
+          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
           color: var(--pink);
           font-size: 11px;
           cursor: pointer;

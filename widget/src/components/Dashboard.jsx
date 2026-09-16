@@ -292,11 +292,11 @@ function StatsTab({ getToken }) {
     </div>
 
     <div className="brain-admin-subpanel">
-      <p className="brain-admin-subpanel__title">Language breakdown <span>{breakdown.length}</span></p>
+      <p className="brain-admin-subpanel__title">Chat language breakdown <span>{breakdown.length}</span></p>
       {breakdown.length === 0 ? <p style={{ color: '#aaa', fontSize: '13px' }}>No language data yet.</p> : breakdown.map(([lang, count]) => (
         <div key={lang} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f9f9f9', fontSize: '13px' }}>
           <span>{languageLabel(lang)} <span style={{ color: '#aaa', marginLeft: '5px' }}>{lang}</span></span>
-          <span style={{ color: '#ff008f', fontWeight: '500' }}>{count} queries</span>
+          <span style={{ color: '#ff008f', fontWeight: '500' }}>{count} chats</span>
         </div>
       ))}
     </div>

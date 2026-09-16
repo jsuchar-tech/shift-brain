@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import crypto from 'crypto'
 import { detectLanguage } from '../lib/detectLanguage.js'
+import { clerkClient } from '../lib/clerk.js'
+import { clerkProfile } from '../lib/clerkProfile.js'
 
 const router = Router()
 
@@ -11,12 +13,44 @@ router.use(requireAuth, requireAdmin)
 // GET /admin/users
 router.get('/users', async (req, res) => {
   try {
-    const { data: users, error } = await supabase
+    const { data: storedUsers, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false })
 
     if (error) throw error
+
+    let users = storedUsers || []
+
+    // Clerk owns participant identity. Refresh the local reporting fields so
+    // the curator never sees stale names, email addresses, offices or years.
+    try {
+      const clerkPage = await clerkClient.users.getUserList({ limit: 500 })
+      const clerkUsers = new Map(clerkPage.data.map(user => [user.id, user]))
+
+      users = await Promise.all(users.map(async user => {
+        const clerkUser = clerkUsers.get(user.clerk_user_id)
+        if (!clerkUser) return user
+
+        const profile = clerkProfile(clerkUser, user)
+        const changed = Object.entries(profile).some(([key, value]) => user[key] !== value)
+        if (changed) {
+          const { error: syncError } = await supabase.from('users').update(profile).eq('id', user.id)
+          if (syncError) console.error(`Failed to refresh Clerk user ${user.id}:`, syncError)
+        }
+
+        return {
+          ...user,
+          ...profile,
+          clerk_last_login: clerkUser.lastSignInAt
+            ? new Date(clerkUser.lastSignInAt).toISOString()
+            : null
+        }
+      }))
+    } catch (clerkError) {
+      // The dashboard should still load from Supabase during a transient Clerk outage.
+      console.error('Clerk user refresh error:', clerkError)
+    }
 
     const { data: usage } = await supabase
       .from('user_token_usage')
@@ -43,7 +77,7 @@ router.get('/users', async (req, res) => {
       tokens_used_this_month: usageMap[u.id]?.tokens_used_this_month || 0,
       daily_limit: usageMap[u.id]?.daily_limit || 30000,
       monthly_limit: usageMap[u.id]?.monthly_limit || 500000,
-      last_login: lastLoginMap[u.id] || null
+      last_login: u.clerk_last_login || lastLoginMap[u.id] || null
     }))
 
     res.json({ users: enriched })
@@ -396,9 +430,10 @@ router.get('/stats', async (req, res) => {
 
     const { data: userMessages, error: userError } = await supabase
       .from('messages')
-      .select('content, language, created_at')
+      .select('conversation_id, content, language, created_at')
       .eq('role', 'user')
       .gte('created_at', thirtyDaysAgo)
+      .order('created_at', { ascending: true })
 
     if (userError) throw userError
 
@@ -409,8 +444,16 @@ router.get('/stats', async (req, res) => {
       : 0
     const safetyEvents = assistantMessages?.filter(m => m.safety_triggered).length || 0
 
+    const firstQuestionByConversation = new Map()
+    userMessages?.forEach((message, index) => {
+      const conversationKey = message.conversation_id || `message-${index}`
+      if (!firstQuestionByConversation.has(conversationKey)) {
+        firstQuestionByConversation.set(conversationKey, message)
+      }
+    })
+
     const langCount = {}
-    userMessages?.forEach(m => {
+    firstQuestionByConversation.forEach(m => {
       const language = detectLanguage(m.content, m.language || 'und').toLowerCase()
       langCount[language] = (langCount[language] || 0) + 1
     })
