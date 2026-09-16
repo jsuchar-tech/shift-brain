@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth, useUser } from '@clerk/clerk-react'
 import MessageList from './MessageList'
 import InputBar from './InputBar'
@@ -26,7 +26,6 @@ export default function Chat({ onOpenDashboard, settings }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [historyScrollRequest, setHistoryScrollRequest] = useState(0)
-  const chatRef = useRef(null)
 
   const {
     messages,
@@ -62,44 +61,6 @@ export default function Chat({ onOpenDashboard, settings }) {
       })
       .catch(console.error)
   }, [user, synced, getToken])
-
-  useEffect(() => {
-    const chat = chatRef.current
-    if (!chat) return
-
-    const findSquarespaceHeader = () => [
-      '.header-announcement-bar-wrapper',
-      'header.Header',
-      '#header',
-      'header'
-    ].map(selector => document.querySelector(selector)).find(Boolean)
-
-    const header = findSquarespaceHeader()
-    const updateHeight = () => {
-      const configured = Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--brain-header-height')
-      )
-      const measured = header?.getBoundingClientRect().height
-        || Math.max(0, chat.getBoundingClientRect().top)
-      const headerHeight = Number.isFinite(configured) && configured >= 0
-        ? configured
-        : measured
-
-      chat.style.setProperty('--brain-page-header-height', `${Math.max(0, Math.round(headerHeight))}px`)
-    }
-
-    updateHeight()
-    window.addEventListener('resize', updateHeight)
-    const observer = header && 'ResizeObserver' in window
-      ? new ResizeObserver(updateHeight)
-      : null
-    observer?.observe(header)
-
-    return () => {
-      window.removeEventListener('resize', updateHeight)
-      observer?.disconnect()
-    }
-  }, [])
 
   async function handleSend(text) {
     const attachment = uploadedFile?.file_name ? uploadedFile : null
@@ -156,7 +117,7 @@ export default function Chat({ onOpenDashboard, settings }) {
   const welcomeCopy = settings?.chat_welcome || 'Let’s start building your movement today!'
 
   return (
-    <div className="brain-chat" ref={chatRef}>
+    <div className="brain-chat">
       <div
         className={`brain-chat__sidebar-backdrop ${sidebarOpen ? 'is-open' : ''}`}
         onClick={() => setSidebarOpen(false)}
@@ -252,8 +213,8 @@ export default function Chat({ onOpenDashboard, settings }) {
           position: relative;
           display: flex;
           width: 100%;
-          height: calc(100dvh - var(--brain-page-header-height, 0px));
-          max-height: calc(100dvh - var(--brain-page-header-height, 0px));
+          height: 100%;
+          max-height: 100%;
           min-height: 0;
           overflow: hidden;
           background: var(--cream);
@@ -380,26 +341,23 @@ export default function Chat({ onOpenDashboard, settings }) {
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: flex-start;
+          justify-content: center;
+          gap: 34px;
+          padding: 48px 30px 24px;
           pointer-events: none;
         }
 
         .brain-chat__brain {
-          position: absolute;
-          top: 151px;
+          position: static;
           width: 91px;
           height: 81px;
           object-fit: cover;
-          transform: translateX(calc(8.5px - (100vw - 768px) * .0805));
+          transform: none;
         }
 
         .brain-chat__welcome h1 {
-          position: absolute;
-          top: 267px;
-          left: calc(50% + 12px - (100vw - 768px) * .0805);
-          right: auto;
-          width: clamp(330px, calc(330px + (100vw - 768px)), 802px);
-          transform: translateX(-50%);
+          position: static;
+          width: min(802px, 100%);
           margin: 0;
           color: #000;
           font-size: 22px;
@@ -492,18 +450,12 @@ export default function Chat({ onOpenDashboard, settings }) {
           .brain-chat__sidebar-reopen { display: none; }
           .brain-chat__controls { gap: 8px; }
           .brain-chat__controls .brain-chat__dashboard { display: none; }
-          .brain-chat__brain { transform: translateX(0); }
           .brain-chat__welcome h1 {
-            left: 50%;
-            right: auto;
-            width: calc(100% - 60px);
-            transform: translateX(-50%);
-            top: 309px;
+            width: 100%;
             font-size: 22px;
             line-height: 34px;
             font-weight: 500;
           }
-          .brain-chat__brain { top: 193px; }
           .brain-chat__error { bottom: 120px; }
         }
       `}</style>

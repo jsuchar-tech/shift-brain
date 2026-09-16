@@ -438,8 +438,8 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
     { id: 'settings', label: copy.dashboard_settings }
   ]
 
-  return <div style={{ minHeight: '100vh', background: '#f7f9fc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-    <div style={{ background: 'white', borderBottom: '1px solid #f0f0f0', padding: '0 32px' }}>
+  return <div style={{ height: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f7f9fc', fontFamily: 'Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ flex: '0 0 auto', background: 'white', borderBottom: '1px solid #f0f0f0', padding: '0 32px' }}>
       <div style={{ display: 'flex', alignItems: 'center', paddingTop: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#4a90d9', cursor: 'pointer', fontSize: '13px' }}>{copy.dashboard_back_to_chat}</button>
@@ -451,7 +451,7 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
       </div>
     </div>
 
-    <div style={{ padding: '24px 32px' }}>
+    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '24px 32px 40px' }}>
       <div style={{ background: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #f0f0f0' }}>
         {activeTab === 'participants' && <ParticipantsTab getToken={getToken} />}
         {activeTab === 'conversations' && <ConversationsTab getToken={getToken} />}

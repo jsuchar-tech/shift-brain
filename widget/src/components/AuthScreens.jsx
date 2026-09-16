@@ -1,0 +1,370 @@
+import { useState } from 'react'
+import { useSignIn, useSignUp } from '@clerk/clerk-react'
+
+const BRAIN_ASSET = 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png'
+
+function clerkError(error, fallback) {
+  return error?.errors?.[0]?.longMessage
+    || error?.errors?.[0]?.message
+    || fallback
+}
+
+function AuthLayout({ title, subtitle, children, modifier = '' }) {
+  return (
+    <div className={`brain-auth ${modifier}`}>
+      <main className="brain-auth__content">
+        <img className="brain-auth__brain" src={BRAIN_ASSET} alt="" />
+        <h1>{title}</h1>
+        {subtitle && <p className="brain-auth__subtitle">{subtitle}</p>}
+        {children}
+      </main>
+
+      <style>{`
+        .brain-auth {
+          --cream: #fdfbef;
+          --ink: #0b0b2d;
+          --pink: #ff008f;
+          --muted: #b7b7b7;
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          background: var(--cream);
+          color: var(--ink);
+          font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .brain-auth__content {
+          position: relative;
+          width: 100%;
+          min-height: 789px;
+        }
+
+        .brain-auth__brain {
+          position: absolute;
+          top: 123px;
+          left: 50%;
+          width: 91px;
+          height: 81px;
+          transform: translateX(-50%);
+          object-fit: cover;
+        }
+
+        .brain-auth h1 {
+          position: absolute;
+          top: 251px;
+          left: 30px;
+          right: 30px;
+          margin: 0;
+          color: #000;
+          font-size: 22px;
+          font-weight: 500;
+          line-height: 33px;
+          text-align: center;
+        }
+
+        .brain-auth__subtitle {
+          position: absolute;
+          top: 303px;
+          left: 50%;
+          width: min(407px, calc(100% - 60px));
+          margin: 0;
+          transform: translateX(-50%);
+          color: #595959;
+          font-size: 13px;
+          line-height: 20px;
+          text-align: center;
+        }
+
+        .brain-auth__form {
+          position: absolute;
+          top: 357px;
+          left: 50%;
+          width: 407px;
+          max-width: calc(100% - 60px);
+          transform: translateX(-50%);
+        }
+
+        .brain-auth__field {
+          display: block;
+          height: 40px;
+          margin: 0 0 23px;
+          border-bottom: 1px solid var(--ink);
+        }
+
+        .brain-auth__field input {
+          width: 100%;
+          height: 39px;
+          padding: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: var(--ink);
+          font: 500 15px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .brain-auth__field input::placeholder { color: var(--muted); opacity: 1; }
+        .brain-auth__field input:focus::placeholder { color: #888; }
+
+        .brain-auth__error,
+        .brain-auth__notice {
+          margin: -10px 0 12px;
+          font-size: 12px;
+          line-height: 18px;
+          text-align: center;
+        }
+
+        .brain-auth__error { color: var(--pink); }
+        .brain-auth__notice { color: #555; }
+
+        .brain-auth__actions {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 34px;
+          margin-top: 28px;
+        }
+
+        .brain-auth__back {
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: var(--pink);
+          font: 500 13px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          cursor: pointer;
+        }
+
+        .brain-auth__submit {
+          position: relative;
+          width: 103px;
+          height: 47px;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .brain-auth__submit::before,
+        .brain-auth__submit::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 20px;
+          transform: rotate(-6deg) skewX(-2deg);
+        }
+
+        .brain-auth__submit::before {
+          background: var(--ink);
+          transform: translate(5px, 6px) rotate(-6deg) skewX(-2deg);
+        }
+
+        .brain-auth__submit::after {
+          background: var(--pink);
+          border: 2px solid var(--ink);
+        }
+
+        .brain-auth__submit span {
+          position: relative;
+          z-index: 1;
+          display: block;
+          color: #fff;
+          font: 700 14px/47px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          transform: rotate(-6deg) skewX(-2deg);
+          white-space: nowrap;
+        }
+
+        .brain-auth__submit:disabled { opacity: .6; cursor: default; }
+        .brain-auth__captcha { margin-top: -10px; }
+        .brain-auth--signup .brain-auth__actions { margin-top: 25px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+        @media (max-width: 767px) {
+          .brain-auth__content { min-height: 783px; }
+          .brain-auth__form { width: 331px; }
+          .brain-auth--signup .brain-auth__form { top: 351px; }
+          .brain-auth__actions { gap: 24px; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+export function CreateAccountScreen({ onBack }) {
+  const { isLoaded, signUp, setActive } = useSignUp()
+  const [stage, setStage] = useState('details')
+  const [fullName, setFullName] = useState('')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function createAccount(event) {
+    event.preventDefault()
+    if (!isLoaded || isSubmitting) return
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setError('')
+    setIsSubmitting(true)
+    try {
+      const names = fullName.trim().split(/\s+/)
+      await signUp.create({
+        emailAddress,
+        password,
+        firstName: names.shift() || undefined,
+        lastName: names.join(' ') || undefined
+      })
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      setStage('verify')
+    } catch (err) {
+      setError(clerkError(err, 'Unable to create your account. Please try again.'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function verifyAccount(event) {
+    event.preventDefault()
+    if (!isLoaded || isSubmitting) return
+
+    setError('')
+    setIsSubmitting(true)
+    try {
+      const result = await signUp.attemptEmailAddressVerification({ code })
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId })
+        return
+      }
+      setError('Additional verification is required to finish creating your account.')
+    } catch (err) {
+      setError(clerkError(err, 'The verification code is invalid or expired.'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthLayout
+      title={stage === 'verify' ? 'Verify your email' : 'Create an account'}
+      subtitle={stage === 'verify' ? `Enter the verification code sent to ${emailAddress}.` : ''}
+      modifier="brain-auth--signup"
+    >
+      <form className="brain-auth__form" onSubmit={stage === 'verify' ? verifyAccount : createAccount}>
+        {stage === 'details' ? (
+          <>
+            <label className="brain-auth__field"><span className="sr-only">Name</span><input value={fullName} onChange={event => setFullName(event.target.value)} placeholder="Name" autoComplete="name" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">Email</span><input type="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Email" autoComplete="email" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">Password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Password" autoComplete="new-password" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">Confirm password</span><input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Confirm password" autoComplete="new-password" required /></label>
+            <div id="clerk-captcha" className="brain-auth__captcha" />
+          </>
+        ) : (
+          <label className="brain-auth__field"><span className="sr-only">Verification code</span><input value={code} onChange={event => setCode(event.target.value)} placeholder="Verification code" inputMode="numeric" autoComplete="one-time-code" required /></label>
+        )}
+
+        {error && <p className="brain-auth__error" role="alert">{error}</p>}
+
+        <div className="brain-auth__actions">
+          <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
+          <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
+            <span>{isSubmitting ? 'WAIT' : stage === 'verify' ? 'VERIFY' : 'CREATE'}</span>
+          </button>
+        </div>
+      </form>
+    </AuthLayout>
+  )
+}
+
+export function ForgotPasswordScreen({ onBack }) {
+  const { isLoaded, signIn, setActive } = useSignIn()
+  const [stage, setStage] = useState('request')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function sendResetCode(event) {
+    event.preventDefault()
+    if (!isLoaded || isSubmitting) return
+
+    setError('')
+    setIsSubmitting(true)
+    try {
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: emailAddress
+      })
+      setStage('reset')
+    } catch (err) {
+      setError(clerkError(err, 'Unable to send the password reset code.'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function resetPassword(event) {
+    event.preventDefault()
+    if (!isLoaded || isSubmitting) return
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setError('')
+    setIsSubmitting(true)
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code,
+        password
+      })
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId })
+        return
+      }
+      setError('Additional verification is required to finish resetting your password.')
+    } catch (err) {
+      setError(clerkError(err, 'Unable to reset your password. Check the code and try again.'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthLayout
+      title={stage === 'request' ? 'Forgot your password?' : 'Create a new password'}
+      subtitle={stage === 'request'
+        ? 'Enter your email and we’ll send you a password reset code.'
+        : `Enter the code sent to ${emailAddress} and choose a new password.`}
+      modifier="brain-auth--forgot"
+    >
+      <form className="brain-auth__form" onSubmit={stage === 'request' ? sendResetCode : resetPassword}>
+        {stage === 'request' ? (
+          <label className="brain-auth__field"><span className="sr-only">Email</span><input type="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Email" autoComplete="email" required /></label>
+        ) : (
+          <>
+            <label className="brain-auth__field"><span className="sr-only">Reset code</span><input value={code} onChange={event => setCode(event.target.value)} placeholder="Reset code" inputMode="numeric" autoComplete="one-time-code" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">New password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="New password" autoComplete="new-password" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">Confirm new password</span><input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Confirm new password" autoComplete="new-password" required /></label>
+          </>
+        )}
+
+        {error && <p className="brain-auth__error" role="alert">{error}</p>}
+
+        <div className="brain-auth__actions">
+          <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
+          <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
+            <span>{isSubmitting ? 'WAIT' : stage === 'request' ? 'SEND' : 'RESET'}</span>
+          </button>
+        </div>
+      </form>
+    </AuthLayout>
+  )
+}

@@ -9,6 +9,7 @@ import {
 import Chat from './components/Chat'
 import Dashboard from './components/Dashboard'
 import ErrorBoundary from './components/errorBoundary'
+import { CreateAccountScreen, ForgotPasswordScreen } from './components/AuthScreens'
 import { API_URL } from './lib/api'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -51,7 +52,7 @@ function AppContent({ settings, onSettingsChange }) {
   )
 }
 
-function ClerkLogin({ settings }) {
+function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
   const { isLoaded, signIn, setActive } = useSignIn()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -125,7 +126,7 @@ function ClerkLogin({ settings }) {
             <button
               type="button"
               className="brain-login__forgot"
-              onClick={() => setError('Enter your account name above and use Clerk’s password recovery flow to reset your password.')}
+              onClick={onForgotPassword}
             >
               {copy.login_forgot_password}
             </button>
@@ -134,7 +135,7 @@ function ClerkLogin({ settings }) {
           {error && <p className="brain-login__error" role="alert">{error}</p>}
 
           <div className="brain-login__actions">
-            <a href="#/sign-up" className="brain-login__create">{copy.login_create_account}</a>
+            <button type="button" className="brain-login__create" onClick={onCreateAccount}>{copy.login_create_account}</button>
             <button className="brain-login__submit" type="submit" disabled={isSubmitting}>
               <span>{isSubmitting ? 'LOGGING IN' : copy.login_button}</span>
             </button>
@@ -149,9 +150,10 @@ function ClerkLogin({ settings }) {
           --pink: #ff008f;
           --muted: #b7b7b7;
           position: relative;
-          min-height: 100vh;
+          height: 100%;
+          min-height: 0;
           width: 100%;
-          overflow: visible;
+          overflow-y: auto;
           background: var(--cream);
           color: #000;
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -177,7 +179,7 @@ function ClerkLogin({ settings }) {
         .brain-login__content {
           position: relative;
           width: 100%;
-          min-height: 100vh;
+          min-height: 789px;
         }
 
         .brain-login__brain {
@@ -275,9 +277,13 @@ function ClerkLogin({ settings }) {
         }
 
         .brain-login__create {
+          padding: 0;
+          border: 0;
+          background: transparent;
           color: var(--pink);
           font: 500 13px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           text-decoration: none;
+          cursor: pointer;
         }
 
         .brain-login__submit {
@@ -337,6 +343,26 @@ function ClerkLogin({ settings }) {
   )
 }
 
+function SignedOutFlow({ settings }) {
+  const [view, setView] = useState('login')
+
+  if (view === 'create-account') {
+    return <CreateAccountScreen onBack={() => setView('login')} />
+  }
+
+  if (view === 'forgot-password') {
+    return <ForgotPasswordScreen onBack={() => setView('login')} />
+  }
+
+  return (
+    <ClerkLogin
+      settings={settings}
+      onForgotPassword={() => setView('forgot-password')}
+      onCreateAccount={() => setView('create-account')}
+    />
+  )
+}
+
 export default function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
@@ -357,7 +383,7 @@ export default function App() {
 
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-      <SignedOut><ClerkLogin settings={settings} /></SignedOut>
+      <SignedOut><SignedOutFlow settings={settings} /></SignedOut>
       <SignedIn><AppContent settings={settings} onSettingsChange={next => setSettings(current => ({ ...current, ...next }))} /></SignedIn>
     </ClerkProvider>
   )
