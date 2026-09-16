@@ -50,10 +50,10 @@ function languageLabel(code) {
 
 function StatCard({ label, value, sub }) {
   return (
-    <div style={{ background: 'white', borderRadius: '12px', padding: '20px 24px', border: '1px solid #f0f0f0' }}>
-      <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>{label}</p>
-      <p style={{ fontSize: '28px', fontWeight: '500', color: '#1a1a2e' }}>{value}</p>
-      {sub && <p style={{ fontSize: '12px', color: '#aaa', marginTop: '2px' }}>{sub}</p>}
+    <div className="brain-admin-stat">
+      <p className="brain-admin-stat__label">{label}</p>
+      <p className="brain-admin-stat__value">{value}</p>
+      {sub && <p className="brain-admin-stat__sub">{sub}</p>}
     </div>
   )
 }
@@ -61,18 +61,11 @@ function StatCard({ label, value, sub }) {
 function TabButton({ label, active, onClick }) {
   return (
     <button
+      type="button"
+      className={`brain-admin-nav__item ${active ? 'is-active' : ''}`}
       onClick={onClick}
-      style={{
-        padding: '8px 16px',
-        border: 'none',
-        borderBottom: active ? '2px solid #4a90d9' : '2px solid transparent',
-        background: 'transparent',
-        color: active ? '#4a90d9' : '#666',
-        fontSize: '14px',
-        fontWeight: active ? '500' : '400',
-        cursor: 'pointer'
-      }}
     >
+      <span className="brain-admin-nav__dot" aria-hidden="true" />
       {label}
     </button>
   )
@@ -110,23 +103,23 @@ function ParticipantsTab({ getToken }) {
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: '500' }}>Participants ({users.length})</h3>
-        <button onClick={generateInvite} style={{ padding: '8px 16px', background: '#4a90d9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
+    <div className="brain-admin-tab">
+      <div className="brain-admin-toolbar">
+        <div><p className="brain-admin-eyebrow">Community</p><h2>Participants <span>{users.length}</span></h2></div>
+        <button className="brain-admin-button brain-admin-button--primary" onClick={generateInvite}>
           + Generate invite link
         </button>
       </div>
 
       {inviteUrl && (
-        <div style={{ padding: '12px 16px', background: '#eaf3fe', borderRadius: '8px', marginBottom: '16px', fontSize: '13px' }}>
+        <div className="brain-admin-notice">
           <strong>Invite link (48hrs):</strong><br />
-          <span style={{ wordBreak: 'break-all', color: '#4a90d9' }}>{inviteUrl}</span>
-          <button onClick={() => { navigator.clipboard.writeText(inviteUrl); alert('Copied!') }} style={{ marginLeft: '8px', padding: '2px 8px', fontSize: '12px', cursor: 'pointer' }}>Copy</button>
+          <span>{inviteUrl}</span>
+          <button className="brain-admin-button brain-admin-button--small" onClick={() => { navigator.clipboard.writeText(inviteUrl); alert('Copied!') }}>Copy</button>
         </div>
       )}
 
-      <div style={{ overflowX: 'auto' }}>
+      <div className="brain-admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
             {['Name', 'Email', 'Country', 'Year', 'Tokens today', 'Last active', 'Status', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px', color: '#888', fontWeight: '500' }}>{h}</th>)}
@@ -160,7 +153,7 @@ function AttachmentThumb({ attachment }) {
       <img src={attachment.signed_url} alt={attachment.file_name} style={{ maxWidth: '160px', maxHeight: '160px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'block', objectFit: 'cover' }} />
     </a>
   }
-  return <span style={{ display: 'inline-block', padding: '2px 8px', background: '#f0f7ff', borderRadius: '4px', fontSize: '11px', color: '#4a90d9' }}>📎 {attachment.file_name}</span>
+  return <span style={{ display: 'inline-block', padding: '3px 9px', background: '#fff0f8', borderRadius: '999px', fontSize: '11px', color: '#ff008f' }}>📎 {attachment.file_name}</span>
 }
 
 function ConversationsTab({ getToken }) {
@@ -201,9 +194,9 @@ function ConversationsTab({ getToken }) {
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
 
   return (
-    <div style={{ display: 'flex', gap: '16px', height: '600px', minHeight: '600px' }}>
-      <div style={{ width: '300px', flexShrink: 0, overflowY: 'auto', borderRight: '1px solid #f0f0f0', paddingRight: '16px' }}>
-        <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+    <div className="brain-admin-conversations">
+      <div className="brain-admin-conversations__list">
+        <div className="brain-admin-filters">
           <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', cursor: 'pointer' }}>
             <input type="checkbox" checked={filter.flagged} onChange={e => setFilter(f => ({ ...f, flagged: e.target.checked }))} />
             Flagged only
@@ -217,29 +210,29 @@ function ConversationsTab({ getToken }) {
           />
         </div>
         {conversations.map(conv => (
-          <div key={conv.id} onClick={() => loadThread(conv.id)} style={{ padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', marginBottom: '4px', background: selected?.id === conv.id ? '#eaf3fe' : 'transparent', border: '1px solid', borderColor: selected?.id === conv.id ? '#4a90d9' : 'transparent' }}>
-            <p style={{ fontSize: '13px', fontWeight: '500', color: '#1a1a2e', marginBottom: '2px' }}>{conv.users?.full_name || 'Unknown'}</p>
+          <button type="button" key={conv.id} onClick={() => loadThread(conv.id)} className={`brain-admin-conversation ${selected?.id === conv.id ? 'is-active' : ''}`}>
+            <p style={{ fontSize: '13px', fontWeight: '500', color: '#0b0b2d', marginBottom: '2px' }}>{conv.users?.full_name || 'Unknown'}</p>
             <p style={{ fontSize: '12px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.title || 'Untitled'}</p>
             <p style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{new Date(conv.created_at).toLocaleDateString()} · {languageLabel(conv.language)}</p>
-          </div>
+          </button>
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div className="brain-admin-conversations__thread">
         {!selected ? <p style={{ color: '#888', fontSize: '14px', padding: '20px' }}>Select a conversation to view the thread</p> : <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="brain-admin-thread-header">
             <div><p style={{ fontWeight: '500', fontSize: '14px' }}>{selected.users?.full_name}</p><p style={{ fontSize: '12px', color: '#888' }}>{selected.title}</p></div>
-            <button onClick={() => exportConversation(selected.id)} style={{ padding: '6px 14px', border: '1px solid #ddd', borderRadius: '8px', background: 'white', fontSize: '13px', cursor: 'pointer' }}>Export .txt</button>
+            <button className="brain-admin-button" onClick={() => exportConversation(selected.id)}>Export .txt</button>
           </div>
           {messages.map(msg => (
-            <div key={msg.id} style={{ marginBottom: '12px', padding: '12px 16px', borderRadius: '8px', background: msg.role === 'user' ? '#f7f9fc' : 'white', border: '1px solid #f0f0f0' }}>
-              <p style={{ fontSize: '11px', fontWeight: '600', color: msg.role === 'user' ? '#4a90d9' : '#666', marginBottom: '6px', textTransform: 'uppercase' }}>
+            <div key={msg.id} style={{ marginBottom: '12px', padding: '12px 16px', borderRadius: '8px', background: msg.role === 'user' ? '#fdfbef' : 'white', border: '1px solid #efeee7' }}>
+              <p style={{ fontSize: '11px', fontWeight: '600', color: msg.role === 'user' ? '#ff008f' : '#666', marginBottom: '6px', textTransform: 'uppercase' }}>
                 {msg.role === 'user' ? 'Participant' : 'SHIFT Brain'}
                 {msg.safety_triggered && <span style={{ marginLeft: '8px', color: '#e53e3e' }}>⚠ Safety</span>}
               </p>
               <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#333', whiteSpace: 'pre-wrap' }}>{msg.content}</p>
               {msg.attachments?.length > 0 && <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>{msg.attachments.map((a, i) => <AttachmentThumb key={i} attachment={a} />)}</div>}
-              {msg.chunks_used?.length > 0 && <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0' }}><p style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>Sources used:</p>{msg.chunks_used.map((c, i) => <p key={i} style={{ fontSize: '11px', color: '#4a90d9' }}>📄 {c.file_name}{c.page_number ? ` p.${c.page_number}` : ''}</p>)}</div>}
+              {msg.chunks_used?.length > 0 && <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0' }}><p style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>Sources used:</p>{msg.chunks_used.map((c, i) => <p key={i} style={{ fontSize: '11px', color: '#ff008f' }}>📄 {c.file_name}{c.page_number ? ` p.${c.page_number}` : ''}</p>)}</div>}
               <p style={{ fontSize: '11px', color: '#ccc', marginTop: '6px' }}>{new Date(msg.created_at).toLocaleTimeString()}{msg.tokens_in ? ` · ${msg.tokens_in + msg.tokens_out} tokens` : ''}{msg.latency_ms ? ` · ${msg.latency_ms}ms` : ''}</p>
             </div>
           ))}
@@ -266,14 +259,14 @@ function KnowledgeTab({ getToken }) {
   }
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
-  return <div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: '500' }}>Knowledge base — {data?.files?.length || 0} files</h3>
-      <button onClick={triggerIngest} disabled={ingesting} style={{ padding: '8px 16px', background: ingesting ? '#ccc' : '#4a90d9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: ingesting ? 'not-allowed' : 'pointer' }}>{ingesting ? 'Ingesting...' : 'Trigger re-ingestion'}</button>
+  return <div className="brain-admin-tab">
+    <div className="brain-admin-toolbar">
+      <div><p className="brain-admin-eyebrow">Resources</p><h2>Knowledge base <span>{data?.files?.length || 0} files</span></h2></div>
+      <button className="brain-admin-button brain-admin-button--primary" onClick={triggerIngest} disabled={ingesting}>{ingesting ? 'Ingesting...' : 'Trigger re-ingestion'}</button>
     </div>
-    {data?.top_files?.length > 0 && <div style={{ marginBottom: '24px' }}><p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>Most retrieved (top 10)</p>{data.top_files.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f9f9f9', fontSize: '13px' }}><span style={{ color: '#333' }}>{f.name}</span><span style={{ color: '#4a90d9', fontWeight: '500' }}>{f.retrieval_count} retrievals</span></div>)}</div>}
+    {data?.top_files?.length > 0 && <div style={{ marginBottom: '24px' }}><p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>Most retrieved (top 10)</p>{data.top_files.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f9f9f9', fontSize: '13px' }}><span style={{ color: '#333' }}>{f.name}</span><span style={{ color: '#ff008f', fontWeight: '500' }}>{f.retrieval_count} retrievals</span></div>)}</div>}
     {data?.never_retrieved?.length > 0 && <div style={{ marginBottom: '24px' }}><p style={{ fontSize: '12px', fontWeight: '600', color: '#e53e3e', marginBottom: '8px', textTransform: 'uppercase' }}>Never retrieved ({data.never_retrieved.length} files)</p>{data.never_retrieved.map((name, i) => <p key={i} style={{ fontSize: '13px', color: '#666', padding: '4px 0' }}>— {name}</p>)}</div>}
-    <div><p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>All ingested files</p><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}><thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>{['File', 'Type', 'Chunks', 'Last ingested'].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px', color: '#888', fontWeight: '500' }}>{h}</th>)}</tr></thead><tbody>{data?.files?.map((f, i) => <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}><td style={{ padding: '8px' }}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9', textDecoration: 'none' }}>{f.name}</a></td><td style={{ padding: '8px', color: '#888' }}>{f.type}</td><td style={{ padding: '8px', color: '#888' }}>{f.chunk_count}</td><td style={{ padding: '8px', color: '#888' }}>{new Date(f.last_ingested).toLocaleDateString()}</td></tr>)}</tbody></table></div></div>
+    <div><p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>All ingested files</p><div className="brain-admin-table-wrap"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}><thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>{['File', 'Type', 'Chunks', 'Last ingested'].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px', color: '#888', fontWeight: '500' }}>{h}</th>)}</tr></thead><tbody>{data?.files?.map((f, i) => <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}><td style={{ padding: '8px' }}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: '#ff008f', textDecoration: 'none' }}>{f.name}</a></td><td style={{ padding: '8px', color: '#888' }}>{f.type}</td><td style={{ padding: '8px', color: '#888' }}>{f.chunk_count}</td><td style={{ padding: '8px', color: '#888' }}>{new Date(f.last_ingested).toLocaleDateString()}</td></tr>)}</tbody></table></div></div>
   </div>
 }
 
@@ -289,20 +282,21 @@ function StatsTab({ getToken }) {
 
   const breakdown = Object.entries(stats?.language_breakdown || {}).sort((a, b) => b[1] - a[1])
 
-  return <div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+  return <div className="brain-admin-tab">
+    <div className="brain-admin-toolbar brain-admin-toolbar--simple"><div><p className="brain-admin-eyebrow">Last 30 days</p><h2>Usage overview</h2></div></div>
+    <div className="brain-admin-stats-grid">
       <StatCard label="Total queries (30d)" value={stats?.total_queries?.toLocaleString() || '0'} />
       <StatCard label="Total tokens (30d)" value={stats?.total_tokens?.toLocaleString() || '0'} />
       <StatCard label="Avg response time" value={stats?.avg_latency_ms ? `${stats.avg_latency_ms}ms` : '—'} />
       <StatCard label="Safety events (30d)" value={stats?.safety_events_count || '0'} />
     </div>
 
-    <div style={{ marginBottom: '24px' }}>
-      <p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>Language breakdown ({breakdown.length})</p>
+    <div className="brain-admin-subpanel">
+      <p className="brain-admin-subpanel__title">Language breakdown <span>{breakdown.length}</span></p>
       {breakdown.length === 0 ? <p style={{ color: '#aaa', fontSize: '13px' }}>No language data yet.</p> : breakdown.map(([lang, count]) => (
         <div key={lang} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f9f9f9', fontSize: '13px' }}>
           <span>{languageLabel(lang)} <span style={{ color: '#aaa', marginLeft: '5px' }}>{lang}</span></span>
-          <span style={{ color: '#4a90d9', fontWeight: '500' }}>{count} queries</span>
+          <span style={{ color: '#ff008f', fontWeight: '500' }}>{count} queries</span>
         </div>
       ))}
     </div>
@@ -332,11 +326,10 @@ const DEFAULT_SETTINGS = {
 }
 
 function SettingsField({ label, value, onChange, multiline = false, type = 'text', help }) {
-  const style = { width: '100%', padding: '9px 10px', border: '1px solid #ddd', borderRadius: '7px', font: 'inherit', fontSize: '13px', color: '#1a1a2e', background: 'white' }
-  return <label style={{ display: 'block', marginBottom: '14px' }}>
-    <span style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#666', marginBottom: '5px' }}>{label}</span>
-    {multiline ? <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={4} style={{ ...style, resize: 'vertical' }} /> : <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} style={style} />}
-    {help && <span style={{ display: 'block', marginTop: '4px', color: '#999', fontSize: '11px' }}>{help}</span>}
+  return <label className="brain-admin-field">
+    <span className="brain-admin-field__label">{label}</span>
+    {multiline ? <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={4} /> : <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} />}
+    {help && <span className="brain-admin-field__help">{help}</span>}
   </label>
 }
 
@@ -355,7 +348,11 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
           onSettingsChange?.(next)
         }
       })
-      .catch(err => setStatus(err.message || 'Failed to load settings'))
+      .catch(err => {
+        // The public /config response already supplied usable settings.
+        // A failed admin refresh should not display a false form error.
+        console.warn('Using already-loaded settings:', err)
+      })
       .finally(() => setLoading(false))
   }, [getToken])
 
@@ -382,20 +379,21 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading settings...</p>
 
-  return <div style={{ maxWidth: '820px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-      <div><h3 style={{ fontSize: '15px', fontWeight: '500', marginBottom: '3px' }}>Branding & copy</h3><p style={{ fontSize: '12px', color: '#999' }}>These values are used by the login screen, chat welcome screen and admin dashboard.</p></div>
-      <button onClick={save} disabled={saving} style={{ padding: '8px 18px', background: saving ? '#ccc' : '#4a90d9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save changes'}</button>
+  return <div className="brain-admin-settings">
+    <div className="brain-admin-toolbar">
+      <div><p className="brain-admin-eyebrow">Appearance</p><h2>Branding & copy</h2><p className="brain-admin-toolbar__description">Used by the login screen, chat welcome screen and curator dashboard.</p></div>
+      <button className="brain-admin-button brain-admin-button--primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</button>
     </div>
 
-    <section style={{ padding: '18px', border: '1px solid #eee', borderRadius: '10px', marginBottom: '14px' }}>
-      <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '14px' }}>Logo</h4>
+    <div className="brain-admin-settings__grid">
+    <section className="brain-admin-settings__card">
+      <h3>Logo</h3>
       <SettingsField label="Logo URL" value={form.logo_url} onChange={v => update('logo_url', v)} help="Use a public HTTPS image URL. Leave empty to use the default SHIFT logo." />
       {form.logo_url && <img src={form.logo_url} alt="Logo preview" style={{ width: '48px', height: '39px', objectFit: 'contain', display: 'block' }} onError={e => { e.currentTarget.style.opacity = '.25' }} />}
     </section>
 
-    <section style={{ padding: '18px', border: '1px solid #eee', borderRadius: '10px', marginBottom: '14px' }}>
-      <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '14px' }}>Login screen</h4>
+    <section className="brain-admin-settings__card brain-admin-settings__card--wide">
+      <h3>Login screen</h3>
       <SettingsField label="Heading" value={form.login_heading} onChange={v => update('login_heading', v)} />
       <SettingsField label="Intro" value={form.login_intro} onChange={v => update('login_intro', v)} multiline />
       <SettingsField label="Emphasis" value={form.login_emphasis} onChange={v => update('login_emphasis', v)} />
@@ -406,13 +404,13 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       <SettingsField label="Login button text" value={form.login_button} onChange={v => update('login_button', v)} />
     </section>
 
-    <section style={{ padding: '18px', border: '1px solid #eee', borderRadius: '10px', marginBottom: '14px' }}>
-      <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '14px' }}>Chat</h4>
+    <section className="brain-admin-settings__card">
+      <h3>Chat</h3>
       <SettingsField label="Welcome copy" value={form.chat_welcome} onChange={v => update('chat_welcome', v)} />
     </section>
 
-    <section style={{ padding: '18px', border: '1px solid #eee', borderRadius: '10px' }}>
-      <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '14px' }}>Dashboard</h4>
+    <section className="brain-admin-settings__card brain-admin-settings__card--wide">
+      <h3>Dashboard</h3>
       <SettingsField label="Dashboard title" value={form.dashboard_title} onChange={v => update('dashboard_title', v)} />
       <SettingsField label="Back to chat text" value={form.dashboard_back_to_chat} onChange={v => update('dashboard_back_to_chat', v)} />
       <SettingsField label="Participants tab" value={form.dashboard_participants} onChange={v => update('dashboard_participants', v)} />
@@ -420,6 +418,7 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       <SettingsField label="Knowledge base tab" value={form.dashboard_knowledge} onChange={v => update('dashboard_knowledge', v)} />
       <SettingsField label="Usage stats tab" value={form.dashboard_usage} onChange={v => update('dashboard_usage', v)} />
     </section>
+    </div>
 
     {status && <p style={{ marginTop: '12px', color: status === 'Saved.' ? '#2d7a3a' : '#c53030', fontSize: '12px' }}>{status}</p>}
   </div>
@@ -437,28 +436,265 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
     { id: 'stats', label: copy.dashboard_usage },
     { id: 'settings', label: copy.dashboard_settings }
   ]
+  const activeLabel = tabs.find(tab => tab.id === activeTab)?.label || copy.dashboard_title
 
-  return <div style={{ height: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f7f9fc', fontFamily: 'Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-    <div style={{ flex: '0 0 auto', background: 'white', borderBottom: '1px solid #f0f0f0', padding: '0 32px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', paddingTop: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#4a90d9', cursor: 'pointer', fontSize: '13px' }}>{copy.dashboard_back_to_chat}</button>
-          <h1 style={{ fontSize: '18px', fontWeight: '600', color: '#1a1a2e' }}>{copy.dashboard_title}</h1>
-        </div>
+  return <div className="brain-dashboard">
+    <aside className="brain-dashboard__sidebar">
+      <div>
+        <p className="brain-dashboard__brand">SHIFT BRAIN</p>
+        <h1>{copy.dashboard_title}</h1>
       </div>
-      <div style={{ display: 'flex', gap: '4px', marginTop: '8px', overflowX: 'auto' }}>
+      <nav className="brain-admin-nav" aria-label="Curator dashboard">
         {tabs.map(t => <TabButton key={t.id} label={t.label} active={activeTab === t.id} onClick={() => setActiveTab(t.id)} />)}
-      </div>
-    </div>
+      </nav>
+      <button className="brain-dashboard__back" type="button" onClick={onBack}>{copy.dashboard_back_to_chat}</button>
+    </aside>
 
-    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '24px 32px 40px' }}>
-      <div style={{ background: 'white', borderRadius: '12px', padding: '24px', border: '1px solid #f0f0f0' }}>
+    <main className="brain-dashboard__main">
+      <header className="brain-dashboard__topbar">
+        <div><span>Curator workspace</span><h2>{activeLabel}</h2></div>
+        <div className="brain-dashboard__status"><span /> Admin access</div>
+      </header>
+
+      <div className="brain-dashboard__scroll">
+        <section className="brain-dashboard__panel">
         {activeTab === 'participants' && <ParticipantsTab getToken={getToken} />}
         {activeTab === 'conversations' && <ConversationsTab getToken={getToken} />}
         {activeTab === 'knowledge' && <KnowledgeTab getToken={getToken} />}
         {activeTab === 'stats' && <StatsTab getToken={getToken} />}
         {activeTab === 'settings' && <SettingsTab getToken={getToken} settings={copy} onSettingsChange={onSettingsChange} />}
+        </section>
       </div>
-    </div>
+    </main>
+
+    <style>{`
+      .brain-dashboard {
+        --cream: #fdfbef;
+        --ink: #0b0b2d;
+        --pink: #ff008f;
+        --muted: #9d9d9d;
+        --line: #deddd5;
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+        background: var(--cream);
+        color: var(--ink);
+        font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .brain-dashboard__sidebar {
+        flex: 0 0 264px;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 31px 25px 24px;
+        border-right: 1px solid var(--line);
+        background: var(--cream);
+      }
+
+      .brain-dashboard__brand,
+      .brain-admin-eyebrow {
+        margin: 0 0 8px;
+        color: var(--pink);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+      }
+
+      .brain-dashboard__sidebar h1 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 24px;
+        font-weight: 500;
+        line-height: 30px;
+      }
+
+      .brain-admin-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 47px;
+      }
+
+      .brain-admin-nav__item {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        width: 100%;
+        min-height: 44px;
+        padding: 0 13px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: #696975;
+        font-size: 13px;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .brain-admin-nav__item:hover { background: rgba(255,255,255,.75); color: var(--ink); }
+      .brain-admin-nav__item.is-active { background: #fff; color: var(--pink); box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05); }
+      .brain-admin-nav__dot { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
+      .brain-admin-nav__item.is-active .brain-admin-nav__dot { background: var(--pink); }
+
+      .brain-dashboard__back {
+        margin-top: auto;
+        min-height: 38px;
+        padding: 0 15px;
+        border: 1px solid var(--pink);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--pink);
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .brain-dashboard__main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+      .brain-dashboard__topbar {
+        flex: 0 0 75px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 clamp(24px, 4vw, 54px);
+        border-bottom: 1px solid var(--line);
+        background: var(--cream);
+      }
+      .brain-dashboard__topbar span { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+      .brain-dashboard__topbar h2 { margin: 4px 0 0; font-size: 18px; font-weight: 500; }
+      .brain-dashboard__status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+      .brain-dashboard__status span { width: 7px; height: 7px; border-radius: 50%; background: var(--pink); }
+
+      .brain-dashboard__scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: clamp(20px, 3.2vw, 42px) clamp(20px, 4vw, 54px) 48px;
+        background: #f8f6ed;
+      }
+      .brain-dashboard__panel {
+        width: 100%;
+        max-width: 1240px;
+        min-height: 100%;
+        margin: 0 auto;
+        padding: clamp(20px, 2.6vw, 34px);
+        border: 1px solid rgba(222,221,213,.8);
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 3px 5px 18px -6px rgba(11,11,45,.08);
+      }
+
+      .brain-admin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+      .brain-admin-toolbar--simple { margin-bottom: 20px; }
+      .brain-admin-toolbar h2 { margin: 0; color: var(--ink); font-size: 22px; font-weight: 500; }
+      .brain-admin-toolbar h2 span { margin-left: 8px; color: var(--muted); font-size: 12px; font-weight: 400; }
+      .brain-admin-toolbar__description { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 18px; }
+
+      .brain-admin-button {
+        min-height: 34px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--ink);
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .brain-admin-button--primary { min-height: 39px; padding: 0 18px; border-color: var(--ink); background: var(--pink); color: #fff; box-shadow: 3px 4px 0 var(--ink); }
+      .brain-admin-button--small { min-height: 27px; margin-left: 10px; padding: 0 11px; }
+      .brain-admin-button:disabled { opacity: .5; cursor: default; }
+
+      .brain-admin-notice { margin-bottom: 18px; padding: 13px 15px; border: 1px solid #ffc5e4; border-radius: 9px; background: #fff3fa; font-size: 12px; line-height: 19px; }
+      .brain-admin-notice span { color: var(--pink); word-break: break-all; }
+      .brain-admin-table-wrap { overflow-x: auto; border: 1px solid #efeee7; border-radius: 10px; }
+      .brain-dashboard table { width: 100%; border-collapse: collapse; }
+      .brain-dashboard thead { background: #faf9f3; }
+      .brain-dashboard th { color: #85858d !important; font-size: 10px !important; font-weight: 600 !important; letter-spacing: .05em; text-transform: uppercase; }
+      .brain-dashboard th, .brain-dashboard td { padding: 12px 13px !important; border-bottom: 1px solid #efeee7; }
+      .brain-dashboard tbody tr:last-child td { border-bottom: 0; }
+      .brain-dashboard tbody tr:hover { background: #fdfcf7; }
+
+      .brain-admin-conversations { display: grid; grid-template-columns: minmax(230px, 310px) minmax(0, 1fr); height: max(560px, calc(100dvh - 235px)); max-height: 760px; overflow: hidden; }
+      .brain-admin-conversations__list { min-width: 0; overflow-y: auto; padding-right: 18px; border-right: 1px solid #ecebe4; }
+      .brain-admin-conversations__thread { min-width: 0; overflow-y: auto; padding-left: 24px; }
+      .brain-admin-filters { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 15px; }
+      .brain-admin-filters input[type="text"] { border-color: var(--line) !important; border-radius: 999px !important; padding: 6px 10px !important; }
+      .brain-admin-conversation { display: block; width: 100%; margin: 0 0 5px; padding: 11px 13px; border: 1px solid transparent; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
+      .brain-admin-conversation:hover { background: #faf9f3; }
+      .brain-admin-conversation.is-active { border-color: #ffc3e3; background: #fff2f9; }
+      .brain-admin-thread-header { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin: 0 0 16px; padding: 0 0 14px; border-bottom: 1px solid #ecebe4; background: #fff; }
+
+      .brain-admin-stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 25px; }
+      .brain-admin-stat { min-width: 0; padding: 19px 20px; border: 1px solid #ecebe4; border-radius: 11px; background: #fdfcf7; }
+      .brain-admin-stat__label { margin: 0 0 10px; color: var(--muted); font-size: 11px; }
+      .brain-admin-stat__value { margin: 0; color: var(--ink); font-size: 27px; font-weight: 500; }
+      .brain-admin-stat__sub { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+      .brain-admin-subpanel { margin-bottom: 20px; padding: 20px; border: 1px solid #ecebe4; border-radius: 11px; }
+      .brain-admin-subpanel__title { margin: 0 0 11px; color: var(--ink); font-size: 12px; font-weight: 600; text-transform: uppercase; }
+      .brain-admin-subpanel__title span { margin-left: 5px; color: var(--muted); font-weight: 400; }
+
+      .brain-admin-settings { width: 100%; }
+      .brain-admin-settings__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+      .brain-admin-settings__card { padding: 20px; border: 1px solid #ecebe4; border-radius: 11px; background: #fdfcf7; }
+      .brain-admin-settings__card--wide { grid-column: span 2; }
+      .brain-admin-settings__card h3 { margin: 0 0 17px; color: var(--ink); font-size: 14px; font-weight: 600; }
+      .brain-admin-field { display: block; margin-bottom: 15px; }
+      .brain-admin-field:last-child { margin-bottom: 0; }
+      .brain-admin-field__label { display: block; margin-bottom: 6px; color: #62626d; font-size: 11px; font-weight: 600; }
+      .brain-admin-field input, .brain-admin-field textarea {
+        width: 100%;
+        padding: 10px 11px;
+        border: 1px solid #d9d8d1;
+        border-radius: 8px;
+        outline: 0;
+        background: #fff;
+        color: var(--ink);
+        font: 13px/19px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .brain-admin-field textarea { resize: vertical; }
+      .brain-admin-field input:focus, .brain-admin-field textarea:focus { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(255,0,143,.08); }
+      .brain-admin-field__help { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 15px; }
+
+      .brain-dashboard a { color: var(--pink) !important; }
+
+      @media (max-width: 1020px) {
+        .brain-dashboard__sidebar { flex-basis: 218px; padding-left: 18px; padding-right: 18px; }
+        .brain-admin-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+
+      @media (max-width: 767px) {
+        .brain-dashboard { flex-direction: column; }
+        .brain-dashboard__sidebar { flex: 0 0 auto; width: 100%; padding: 17px 20px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+        .brain-dashboard__sidebar > div { display: flex; align-items: baseline; gap: 12px; }
+        .brain-dashboard__brand { margin: 0; }
+        .brain-dashboard__sidebar h1 { font-size: 18px; line-height: 24px; }
+        .brain-admin-nav { flex-direction: row; gap: 3px; margin-top: 13px; overflow-x: auto; padding-bottom: 3px; }
+        .brain-admin-nav__item { flex: 0 0 auto; width: auto; min-height: 34px; padding: 0 11px; font-size: 11px; }
+        .brain-admin-nav__dot { display: none; }
+        .brain-dashboard__back { position: absolute; top: 13px; right: 20px; min-height: 30px; margin: 0; font-size: 10px; }
+        .brain-dashboard__topbar { display: none; }
+        .brain-dashboard__scroll { padding: 15px 14px 28px; }
+        .brain-dashboard__panel { padding: 17px 15px; border-radius: 11px; }
+        .brain-admin-toolbar { align-items: flex-start; flex-direction: column; }
+        .brain-admin-button--primary { align-self: stretch; }
+        .brain-admin-conversations { grid-template-columns: 1fr; height: auto; max-height: none; overflow: visible; }
+        .brain-admin-conversations__list { max-height: 330px; padding: 0 0 15px; border-right: 0; border-bottom: 1px solid #ecebe4; }
+        .brain-admin-conversations__thread { max-height: 560px; padding: 18px 0 0; }
+        .brain-admin-stats-grid { grid-template-columns: 1fr 1fr; }
+        .brain-admin-settings__grid { grid-template-columns: 1fr; }
+        .brain-admin-settings__card--wide { grid-column: span 1; }
+      }
+
+      @media (max-width: 430px) {
+        .brain-dashboard__sidebar h1 { max-width: 145px; }
+        .brain-dashboard__back { max-width: 122px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .brain-admin-stats-grid { grid-template-columns: 1fr; }
+      }
+    `}</style>
   </div>
 }
