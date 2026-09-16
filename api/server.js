@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js'
 import chatRoutes from './routes/chat.js'
 import adminRoutes from './routes/admin.js'
 import usageRoutes from './routes/usage.js'
+import { publicSettingsRouter, adminSettingsRouter } from './routes/settings.js'
 
 dotenv.config()
 
@@ -20,12 +21,6 @@ const __dirname = dirname(__filename)
 
 app.use(helmet())
 
-// Exact-match allowlist only. The previous version trusted any
-// *.up.railway.app origin, which meant any other app on Railway's
-// shared domain (not just this one) was treated as a trusted,
-// credentialed origin — anyone with a Railway account could stand up
-// evil.up.railway.app and make authenticated cross-origin requests
-// against this API using a victim's browser session.
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4000',
@@ -62,9 +57,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+app.use('/config', publicSettingsRouter)
 app.use('/auth', authRoutes)
 app.use('/chat', chatRoutes)
 app.use('/admin', adminRoutes)
+app.use('/admin/settings', adminSettingsRouter)
 app.use('/usage', usageRoutes)
 
 app.get('*', (req, res, next) => {
@@ -79,8 +76,6 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' })
 })
 
-// Global error handler — log full detail server-side, never leak
-// internal error messages (DB errors, stack traces, etc.) to clients.
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err)
   res.status(500).json({ error: 'Internal server error' })

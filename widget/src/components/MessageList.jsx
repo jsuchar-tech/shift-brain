@@ -1,22 +1,9 @@
-import { useEffect, useRef } from 'react'
+
 import MessageBubble from './MessageBubble'
 
 export default function MessageList({ messages, isLoading, fontSize }) {
-  const containerRef = useRef(null)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    // Keep the composer fixed in place and open existing conversations at the latest message.
-    // Wait one frame so the newly rendered messages have their final height before scrolling.
-    requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight
-    })
-  }, [messages, isLoading])
-
   return (
-    <div ref={containerRef} className="brain-message-list">
+    <div className="brain-message-list">
       <div className="brain-message-list__content">
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} fontSize={fontSize} />
@@ -48,14 +35,14 @@ export default function MessageList({ messages, isLoading, fontSize }) {
 
       <style>{`
         .brain-message-list {
-          position: absolute;
+          position: relative;
           z-index: 2;
-          top: 58px;
-          left: 0;
-          right: 0;
-          bottom: 176px;
+          top: auto;
+          left: auto;
+          right: auto;
+          bottom: auto;
           min-height: 0;
-          overflow-y: auto;
+          overflow: visible;
           overflow-x: hidden;
           padding: 20px 0 8px;
         }
@@ -67,18 +54,8 @@ export default function MessageList({ messages, isLoading, fontSize }) {
           justify-content: flex-end;
         }
 
-        .brain-message-list::-webkit-scrollbar { width: 5px; }
-        .brain-message-list::-webkit-scrollbar-thumb {
-          background: rgba(11,11,45,.16);
-          border-radius: 999px;
-        }
-
         @media (max-width: 767px) {
-          .brain-message-list {
-            top: 52px;
-            bottom: 142px;
-            padding: 12px 0 8px;
-          }
+          .brain-message-list { padding: 12px 0 8px; }
         }
       `}</style>
     </div>

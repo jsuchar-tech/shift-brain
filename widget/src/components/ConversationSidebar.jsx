@@ -43,11 +43,13 @@ export default function ConversationSidebar({
 
       <style>{`
         .brain-sidebar {
-          position: relative;
+          position: sticky;
+          top: 0;
           z-index: 10;
           flex: 0 0 clamp(270px, calc(146px + 16.1vw), 346px);
           width: clamp(270px, calc(146px + 16.1vw), 346px);
-          height: 100%;
+          height: 100vh;
+          max-height: 100vh;
           display: flex;
           flex-direction: column;
           background: var(--cream, #fdfbef);
@@ -118,11 +120,22 @@ export default function ConversationSidebar({
         }
 
         .brain-sidebar__list {
-          height: calc(100% - 74px);
+          flex: 1 1 auto;
+          min-height: 0;
+          height: auto;
           margin-top: 35px;
-          padding: 0 13px;
-          overflow: hidden;
-          mask-image: linear-gradient(to bottom, #000 0, #000 86%, transparent 100%);
+          padding: 0 13px 12px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(11,11,45,.16) transparent;
+          mask-image: linear-gradient(to bottom, #000 0, #000 92%, transparent 100%);
+        }
+
+        .brain-sidebar__list::-webkit-scrollbar { width: 5px; }
+        .brain-sidebar__list::-webkit-scrollbar-thumb {
+          background: rgba(11,11,45,.16);
+          border-radius: 999px;
         }
 
         .brain-sidebar__item {
@@ -191,7 +204,7 @@ export default function ConversationSidebar({
 
         @media (max-width: 767px) {
           .brain-sidebar {
-            position: absolute;
+            position: fixed;
             left: 0;
             top: 0;
             bottom: 0;

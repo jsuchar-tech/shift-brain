@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ClerkProvider,
   SignedIn,
@@ -11,13 +11,34 @@ import Dashboard from './components/Dashboard'
 import ErrorBoundary from './components/errorBoundary'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
+
+const DEFAULT_SETTINGS = {
+  logo_url: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
+  login_heading: 'Hello there!',
+  login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
+  login_emphasis: 'Ask me anything related to SHIFT!',
+  login_name_placeholder: 'Name',
+  login_password_placeholder: 'Password',
+  login_forgot_password: 'Forgot password?',
+  login_create_account: 'Create an account',
+  login_button: 'LOG IN',
+  dashboard_title: 'Curator Dashboard',
+  dashboard_back_to_chat: '← Back to chat',
+  dashboard_participants: 'Participants',
+  dashboard_conversations: 'Conversations',
+  dashboard_knowledge: 'Knowledge base',
+  dashboard_usage: 'Usage stats',
+  dashboard_settings: 'Settings',
+  chat_welcome: 'Let’s start building your movement today!'
+}
 
 const LOGIN_ASSETS = {
   logo: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
   brain: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png'
 }
 
-function AppContent() {
+function AppContent({ settings, onSettingsChange }) {
   const { user } = useUser()
   const [view, setView] = useState('chat')
   const isAdmin = user?.publicMetadata?.role === 'admin'
@@ -25,13 +46,13 @@ function AppContent() {
   return (
     <ErrorBoundary>
       {view === 'dashboard' && isAdmin
-        ? <Dashboard onBack={() => setView('chat')} />
-        : <Chat onOpenDashboard={isAdmin ? () => setView('dashboard') : null} />}
+        ? <Dashboard onBack={() => setView('chat')} settings={settings} onSettingsChange={onSettingsChange} />
+        : <Chat onOpenDashboard={isAdmin ? () => setView('dashboard') : null} settings={settings} />}
     </ErrorBoundary>
   )
 }
 
-function ClerkLogin() {
+function ClerkLogin({ settings }) {
   const { isLoaded, signIn, setActive } = useSignIn()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -62,22 +83,21 @@ function ClerkLogin() {
     }
   }
 
+  const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
+
   return (
     <div className="brain-login">
       <header className="brain-login__header">
-        <img src={LOGIN_ASSETS.logo} alt="SHIFT" className="brain-login__logo" />
-        <button type="button" className="brain-login__menu" aria-label="Open menu">
-          <span /><span /><span />
-        </button>
+        <img src={copy.logo_url || LOGIN_ASSETS.logo} alt="SHIFT" className="brain-login__logo" />
       </header>
 
       <main className="brain-login__content">
         <img src={LOGIN_ASSETS.brain} alt="" className="brain-login__brain" />
-        <h1>Hello there!</h1>
+        <h1>{copy.login_heading}</h1>
 
         <div className="brain-login__intro">
-          <p>I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.</p>
-          <p className="brain-login__intro-strong">Ask me anything related to SHIFT!</p>
+          <p>{copy.login_intro}</p>
+          <p className="brain-login__intro-strong">{copy.login_emphasis}</p>
         </div>
 
         <form className="brain-login__form" onSubmit={handleSubmit}>
@@ -87,7 +107,7 @@ function ClerkLogin() {
               type="text"
               value={identifier}
               onChange={event => setIdentifier(event.target.value)}
-              placeholder="Name"
+              placeholder={copy.login_name_placeholder}
               autoComplete="username"
               required
             />
@@ -99,7 +119,7 @@ function ClerkLogin() {
               type="password"
               value={password}
               onChange={event => setPassword(event.target.value)}
-              placeholder="Password"
+              placeholder={copy.login_password_placeholder}
               autoComplete="current-password"
               required
             />
@@ -108,16 +128,16 @@ function ClerkLogin() {
               className="brain-login__forgot"
               onClick={() => setError('Enter your account name above and use Clerk’s password recovery flow to reset your password.')}
             >
-              Forgot password?
+              {copy.login_forgot_password}
             </button>
           </label>
 
           {error && <p className="brain-login__error" role="alert">{error}</p>}
 
           <div className="brain-login__actions">
-            <a href="#/sign-up" className="brain-login__create">Create an account</a>
+            <a href="#/sign-up" className="brain-login__create">{copy.login_create_account}</a>
             <button className="brain-login__submit" type="submit" disabled={isSubmitting}>
-              <span>{isSubmitting ? 'LOGGING IN' : 'LOG IN'}</span>
+              <span>{isSubmitting ? 'LOGGING IN' : copy.login_button}</span>
             </button>
           </div>
         </form>
@@ -132,7 +152,7 @@ function ClerkLogin() {
           position: relative;
           min-height: 100vh;
           width: 100%;
-          overflow: hidden;
+          overflow: visible;
           background: var(--cream);
           color: #000;
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -153,26 +173,6 @@ function ClerkLogin() {
           width: 48px;
           height: 39px;
           object-fit: cover;
-        }
-
-        .brain-login__menu {
-          display: flex;
-          width: 24px;
-          height: 24px;
-          margin-top: 13px;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          flex-direction: column;
-          justify-content: space-between;
-          cursor: pointer;
-        }
-
-        .brain-login__menu span {
-          display: block;
-          width: 24px;
-          height: 1.4px;
-          background: var(--ink);
         }
 
         .brain-login__content {
@@ -339,10 +339,27 @@ function ClerkLogin() {
 }
 
 export default function App() {
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetch(`${API_URL}/config`)
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!cancelled && data?.settings) {
+          setSettings(current => ({ ...current, ...data.settings }))
+        }
+      })
+      .catch(() => {})
+
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-      <SignedOut><ClerkLogin /></SignedOut>
-      <SignedIn><AppContent /></SignedIn>
+      <SignedOut><ClerkLogin settings={settings} /></SignedOut>
+      <SignedIn><AppContent settings={settings} onSettingsChange={next => setSettings(current => ({ ...current, ...next }))} /></SignedIn>
     </ClerkProvider>
   )
 }

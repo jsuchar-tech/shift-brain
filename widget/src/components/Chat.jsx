@@ -16,7 +16,7 @@ const ASSETS = {
   sendIcon: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg'
 }
 
-export default function Chat({ onOpenDashboard }) {
+export default function Chat({ onOpenDashboard, settings }) {
   const { getToken, signOut } = useAuth()
   const { user } = useUser()
   const [synced, setSynced] = useState(false)
@@ -112,6 +112,7 @@ export default function Chat({ onOpenDashboard }) {
   }
 
   const showWelcome = messages.length === 0
+  const welcomeCopy = settings?.chat_welcome || 'Let’s start building your movement today!'
 
   return (
     <div className="brain-chat">
@@ -174,7 +175,7 @@ export default function Chat({ onOpenDashboard }) {
         {showWelcome ? (
           <section className="brain-chat__welcome">
             <img className="brain-chat__brain" src={ASSETS.brain} alt="" />
-            <h1>Let’s start building your movement today!</h1>
+            <h1>{welcomeCopy}</h1>
           </section>
         ) : (
           <MessageList
@@ -207,9 +208,9 @@ export default function Chat({ onOpenDashboard }) {
           position: relative;
           display: flex;
           width: 100%;
-          height: 100%;
-          min-height: 0;
-          overflow: hidden;
+          min-height: 100vh;
+          height: auto;
+          overflow: visible;
           background: var(--cream);
           color: var(--ink);
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -219,8 +220,9 @@ export default function Chat({ onOpenDashboard }) {
           position: relative;
           flex: 1 1 auto;
           min-width: 0;
-          height: 100%;
-          overflow: hidden;
+          min-height: 100vh;
+          height: auto;
+          overflow: visible;
           border-top: 1px solid #deddd5;
         }
 
@@ -359,8 +361,8 @@ export default function Chat({ onOpenDashboard }) {
         }
 
         .brain-chat__error {
-          position: absolute;
-          z-index: 8;
+          position: fixed;
+          z-index: 50;
           left: 20px;
           right: 20px;
           bottom: 160px;
@@ -373,6 +375,32 @@ export default function Chat({ onOpenDashboard }) {
         }
 
         .brain-chat__sidebar-backdrop { display: none; }
+
+        /* The Squarespace/page document owns the vertical scrollbar. */
+        .brain-chat .brain-message-list {
+          position: relative;
+          top: auto;
+          left: auto;
+          right: auto;
+          bottom: auto;
+          min-height: calc(100vh - 210px);
+          max-height: none;
+          overflow: visible;
+          padding-top: 58px;
+          padding-bottom: 188px;
+        }
+
+        .brain-chat .brain-message-list__content {
+          min-height: calc(100vh - 268px);
+        }
+
+        .brain-chat .brain-input.is-active {
+          position: sticky;
+          top: auto;
+          bottom: 18px;
+          margin-top: -158px;
+          margin-bottom: 18px;
+        }
 
         .brain-chat__main.is-sidebar-collapsed .brain-chat__brain {
           transform: translateX(0);
@@ -388,7 +416,20 @@ export default function Chat({ onOpenDashboard }) {
         }
 
         @media (max-width: 767px) {
-          .brain-chat__main { border-top: 0; }
+          .brain-chat__main { border-top: 0; min-height: 100vh; }
+          .brain-chat .brain-message-list {
+            min-height: calc(100vh - 170px);
+            padding-top: 52px;
+            padding-bottom: 150px;
+          }
+          .brain-chat .brain-message-list__content {
+            min-height: calc(100vh - 202px);
+          }
+          .brain-chat .brain-input.is-active {
+            bottom: 20px;
+            margin-top: -126px;
+            margin-bottom: 20px;
+          }
           .brain-chat__sidebar-backdrop {
             position: absolute;
             z-index: 9;
@@ -423,7 +464,7 @@ export default function Chat({ onOpenDashboard }) {
             font-weight: 500;
           }
           .brain-chat__brain { top: 193px; }
-          .brain-chat__error { bottom: 125px; }
+          .brain-chat__error { bottom: 120px; }
         }
       `}</style>
     </div>
