@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-
-const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
+import { API_URL } from '../lib/api'
 
 async function adminFetch(path, getToken, options = {}) {
   const token = await getToken()
@@ -13,8 +12,27 @@ async function adminFetch(path, getToken, options = {}) {
       ...options.headers
     }
   })
-  if (!res.ok) throw new Error(`Failed: ${path}`)
-  return res.json()
+  const contentType = res.headers.get('content-type') || ''
+  const text = await res.text()
+  let data = null
+
+  if (text && contentType.includes('application/json')) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      throw new Error(`The server returned invalid JSON for ${path}`)
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || `Request failed (${res.status})`)
+  }
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(`The API returned ${contentType || 'a non-JSON response'} for ${path}`)
+  }
+
+  return data
 }
 
 function languageLabel(code) {

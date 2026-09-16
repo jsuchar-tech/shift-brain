@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import crypto from 'crypto'
+import { detectLanguage } from '../lib/detectLanguage.js'
 
 const router = Router()
 
@@ -385,24 +386,33 @@ router.get('/stats', async (req, res) => {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-    const { data: messages, error } = await supabase
+    const { data: assistantMessages, error: assistantError } = await supabase
       .from('messages')
       .select('created_at, tokens_in, tokens_out, latency_ms, language, safety_triggered')
       .eq('role', 'assistant')
       .gte('created_at', thirtyDaysAgo)
 
-    if (error) throw error
+    if (assistantError) throw assistantError
 
-    const totalQueries = messages?.length || 0
-    const totalTokens = messages?.reduce((sum, m) => sum + (m.tokens_in || 0) + (m.tokens_out || 0), 0) || 0
-    const avgLatency = messages?.length
-      ? Math.round(messages.reduce((sum, m) => sum + (m.latency_ms || 0), 0) / messages.length)
+    const { data: userMessages, error: userError } = await supabase
+      .from('messages')
+      .select('content, language, created_at')
+      .eq('role', 'user')
+      .gte('created_at', thirtyDaysAgo)
+
+    if (userError) throw userError
+
+    const totalQueries = userMessages?.length || 0
+    const totalTokens = assistantMessages?.reduce((sum, m) => sum + (m.tokens_in || 0) + (m.tokens_out || 0), 0) || 0
+    const avgLatency = assistantMessages?.length
+      ? Math.round(assistantMessages.reduce((sum, m) => sum + (m.latency_ms || 0), 0) / assistantMessages.length)
       : 0
-    const safetyEvents = messages?.filter(m => m.safety_triggered).length || 0
+    const safetyEvents = assistantMessages?.filter(m => m.safety_triggered).length || 0
 
     const langCount = {}
-    messages?.forEach(m => {
-      langCount[m.language || 'en'] = (langCount[m.language || 'en'] || 0) + 1
+    userMessages?.forEach(m => {
+      const language = detectLanguage(m.content, m.language || 'und').toLowerCase()
+      langCount[language] = (langCount[language] || 0) + 1
     })
 
     const { data: safety } = await supabase

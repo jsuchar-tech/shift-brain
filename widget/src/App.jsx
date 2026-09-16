@@ -9,10 +9,9 @@ import {
 import Chat from './components/Chat'
 import Dashboard from './components/Dashboard'
 import ErrorBoundary from './components/errorBoundary'
+import { API_URL } from './lib/api'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
-
 const DEFAULT_SETTINGS = {
   logo_url: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
   login_heading: 'Hello there!',

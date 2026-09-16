@@ -86,20 +86,11 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
 
       <style>{`
         .brain-input {
-          position: absolute;
+          position: relative;
           z-index: 6;
           width: 396px;
+          max-width: 100%;
           height: 140px;
-          left: calc(50% - 29px);
-          transform: translateX(-50%);
-        }
-
-        .brain-input.is-welcome { top: 381px; }
-        .brain-input.is-active {
-          left: calc(50% - 29px);
-          right: auto;
-          bottom: 18px;
-          top: auto;
         }
 
         .brain-input__box {
@@ -185,20 +176,12 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
         .brain-input__attachment span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .brain-input__attachment button { border: 0; background: none; color: #aaa; cursor: pointer; font-size: 18px; }
 
-        @media (min-width: 768px) and (max-width: 900px) {
-          .brain-input { left: calc(50% + 4px); }
-          .brain-input.is-active { left: calc(50% + 4px); }
-        }
-
         @media (max-width: 767px) {
           .brain-input {
-            left: 50%;
-            width: calc(100% - 60px);
+            width: 100%;
             max-width: 330px;
             height: 106px;
           }
-          .brain-input.is-welcome { top: auto; bottom: 38px; }
-          .brain-input.is-active { bottom: 20px; }
           .brain-input__box { padding: 17px 14px 8px; }
           .brain-input textarea { height: 42px; font-size: 14px; line-height: 28px; }
           .brain-input__footer { gap: 22px; padding: 7px 0; }

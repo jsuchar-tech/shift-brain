@@ -1,5 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL
+export const API_URL = (
+  import.meta.env.VITE_API_URL
   || (import.meta.env.DEV ? '/api' : 'https://shift-brain-production.up.railway.app')
+).replace(/\/$/, '')
 
 async function getHeaders(getToken) {
   const token = await getToken()

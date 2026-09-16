@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth, useUser } from '@clerk/clerk-react'
 import MessageList from './MessageList'
 import InputBar from './InputBar'
@@ -25,6 +25,8 @@ export default function Chat({ onOpenDashboard, settings }) {
   const [fontSize, setFontSize] = useState(16)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [historyScrollRequest, setHistoryScrollRequest] = useState(0)
+  const chatRef = useRef(null)
 
   const {
     messages,
@@ -61,6 +63,44 @@ export default function Chat({ onOpenDashboard, settings }) {
       .catch(console.error)
   }, [user, synced, getToken])
 
+  useEffect(() => {
+    const chat = chatRef.current
+    if (!chat) return
+
+    const findSquarespaceHeader = () => [
+      '.header-announcement-bar-wrapper',
+      'header.Header',
+      '#header',
+      'header'
+    ].map(selector => document.querySelector(selector)).find(Boolean)
+
+    const header = findSquarespaceHeader()
+    const updateHeight = () => {
+      const configured = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--brain-header-height')
+      )
+      const measured = header?.getBoundingClientRect().height
+        || Math.max(0, chat.getBoundingClientRect().top)
+      const headerHeight = Number.isFinite(configured) && configured >= 0
+        ? configured
+        : measured
+
+      chat.style.setProperty('--brain-page-header-height', `${Math.max(0, Math.round(headerHeight))}px`)
+    }
+
+    updateHeight()
+    window.addEventListener('resize', updateHeight)
+    const observer = header && 'ResizeObserver' in window
+      ? new ResizeObserver(updateHeight)
+      : null
+    observer?.observe(header)
+
+    return () => {
+      window.removeEventListener('resize', updateHeight)
+      observer?.disconnect()
+    }
+  }, [])
+
   async function handleSend(text) {
     const attachment = uploadedFile?.file_name ? uploadedFile : null
     setUploadedFile(null)
@@ -72,6 +112,7 @@ export default function Chat({ onOpenDashboard, settings }) {
   async function handleSelectConversation(id) {
     const data = await loadThread(id)
     loadConversation(data.conversation, data.messages)
+    setHistoryScrollRequest(request => request + 1)
     setSidebarOpen(false)
   }
 
@@ -115,7 +156,7 @@ export default function Chat({ onOpenDashboard, settings }) {
   const welcomeCopy = settings?.chat_welcome || 'Let’s start building your movement today!'
 
   return (
-    <div className="brain-chat">
+    <div className="brain-chat" ref={chatRef}>
       <div
         className={`brain-chat__sidebar-backdrop ${sidebarOpen ? 'is-open' : ''}`}
         onClick={() => setSidebarOpen(false)}
@@ -182,21 +223,24 @@ export default function Chat({ onOpenDashboard, settings }) {
             messages={messages}
             isLoading={isLoading}
             fontSize={fontSize}
+            scrollToBottomRequest={historyScrollRequest}
           />
         )}
 
         {error && <div className="brain-chat__error">{error}</div>}
 
-        <InputBar
-          onSend={handleSend}
-          isLoading={isLoading || isUploading}
-          onFileUpload={handleFileUpload}
-          uploadedFile={uploadedFile}
-          onClearFile={() => setUploadedFile(null)}
-          assets={ASSETS}
-          showWelcome={showWelcome}
-          tokensRemaining={usage?.daily_remaining}
-        />
+        <div className={`brain-chat__composer ${showWelcome ? 'is-welcome' : ''}`}>
+          <InputBar
+            onSend={handleSend}
+            isLoading={isLoading || isUploading}
+            onFileUpload={handleFileUpload}
+            uploadedFile={uploadedFile}
+            onClearFile={() => setUploadedFile(null)}
+            assets={ASSETS}
+            showWelcome={showWelcome}
+            tokensRemaining={usage?.daily_remaining}
+          />
+        </div>
       </main>
 
       <style>{`
@@ -208,9 +252,10 @@ export default function Chat({ onOpenDashboard, settings }) {
           position: relative;
           display: flex;
           width: 100%;
-          min-height: 100vh;
-          height: auto;
-          overflow: visible;
+          height: calc(100dvh - var(--brain-page-header-height, 0px));
+          max-height: calc(100dvh - var(--brain-page-header-height, 0px));
+          min-height: 0;
+          overflow: hidden;
           background: var(--cream);
           color: var(--ink);
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -218,11 +263,13 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         .brain-chat__main {
           position: relative;
+          display: flex;
+          flex-direction: column;
           flex: 1 1 auto;
           min-width: 0;
-          min-height: 100vh;
-          height: auto;
-          overflow: visible;
+          min-height: 0;
+          height: 100%;
+          overflow: hidden;
           border-top: 1px solid #deddd5;
         }
 
@@ -327,8 +374,9 @@ export default function Chat({ onOpenDashboard, settings }) {
         .brain-chat__mobile-sidebar-toggle { display: none; }
 
         .brain-chat__welcome {
-          position: absolute;
-          inset: 0;
+          position: relative;
+          flex: 1 1 auto;
+          min-height: 0;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -376,30 +424,35 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         .brain-chat__sidebar-backdrop { display: none; }
 
-        /* The Squarespace/page document owns the vertical scrollbar. */
         .brain-chat .brain-message-list {
-          position: relative;
-          top: auto;
-          left: auto;
-          right: auto;
-          bottom: auto;
-          min-height: calc(100vh - 210px);
+          flex: 1 1 auto;
+          min-height: 0;
           max-height: none;
-          overflow: visible;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-gutter: stable;
           padding-top: 58px;
-          padding-bottom: 188px;
+          padding-bottom: 24px;
         }
 
         .brain-chat .brain-message-list__content {
-          min-height: calc(100vh - 268px);
+          min-height: 0;
         }
 
-        .brain-chat .brain-input.is-active {
-          position: sticky;
-          top: auto;
-          bottom: 18px;
-          margin-top: -158px;
-          margin-bottom: 18px;
+        .brain-chat__composer {
+          position: relative;
+          z-index: 7;
+          flex: 0 0 auto;
+          display: flex;
+          justify-content: center;
+          width: 100%;
+          padding: 16px 24px 18px;
+          background: var(--cream);
+          border-top: 1px solid rgba(222, 221, 213, .55);
+        }
+
+        .brain-chat__composer.is-welcome {
+          border-top-color: transparent;
         }
 
         .brain-chat__main.is-sidebar-collapsed .brain-chat__brain {
@@ -410,26 +463,13 @@ export default function Chat({ onOpenDashboard, settings }) {
           left: 50%;
         }
 
-        .brain-chat__main.is-sidebar-collapsed .brain-input,
-        .brain-chat__main.is-sidebar-collapsed .brain-input.is-active {
-          left: 50%;
-        }
-
         @media (max-width: 767px) {
-          .brain-chat__main { border-top: 0; min-height: 100vh; }
+          .brain-chat__main { border-top: 0; min-height: 0; }
           .brain-chat .brain-message-list {
-            min-height: calc(100vh - 170px);
             padding-top: 52px;
-            padding-bottom: 150px;
+            padding-bottom: 18px;
           }
-          .brain-chat .brain-message-list__content {
-            min-height: calc(100vh - 202px);
-          }
-          .brain-chat .brain-input.is-active {
-            bottom: 20px;
-            margin-top: -126px;
-            margin-bottom: 20px;
-          }
+          .brain-chat__composer { padding: 12px 30px 20px; }
           .brain-chat__sidebar-backdrop {
             position: absolute;
             z-index: 9;

@@ -1,9 +1,22 @@
 
+import { useLayoutEffect, useRef } from 'react'
 import MessageBubble from './MessageBubble'
 
-export default function MessageList({ messages, isLoading, fontSize }) {
+export default function MessageList({ messages, isLoading, fontSize, scrollToBottomRequest = 0 }) {
+  const listRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (!scrollToBottomRequest || !listRef.current) return
+
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' })
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [scrollToBottomRequest])
+
   return (
-    <div className="brain-message-list">
+    <div className="brain-message-list" ref={listRef}>
       <div className="brain-message-list__content">
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} fontSize={fontSize} />
@@ -42,7 +55,7 @@ export default function MessageList({ messages, isLoading, fontSize }) {
           right: auto;
           bottom: auto;
           min-height: 0;
-          overflow: visible;
+          overflow-y: auto;
           overflow-x: hidden;
           padding: 20px 0 8px;
         }
@@ -51,7 +64,7 @@ export default function MessageList({ messages, isLoading, fontSize }) {
           min-height: 100%;
           display: flex;
           flex-direction: column;
-          justify-content: flex-end;
+          justify-content: flex-start;
         }
 
         @media (max-width: 767px) {

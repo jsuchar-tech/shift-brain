@@ -13,7 +13,7 @@ const WORD_LISTS = {
   nl: 'de het een en of van voor met wat hoe waarom waar wanneer is zijn niet dank hallo bedankt ik jij je jullie'.split(' '),
   pl: 'i oraz lub nie jest są że jak gdzie kiedy dlaczego dla z ze na do czy dziękuję cześć proszę potrzebuję chcę mogę pomoc'.split(' '),
   cs: 'a nebo ale není je jsou že jak kde kdy proč pro s se na do co děkuji ahoj prosím potřebuji chci můžu pomoc'.split(' '),
-  sk: 'a alebo ale nie je sú že ako kde kedy prečo pre s so na do čo ďakujem ahoj prosím potrebujem chcem môžem pomoc'.split(' '),
+  sk: 'a alebo ale nie je sú že ako kde kedy prečo pre s so na do čo ďakujem ahoj prosím potrebujem chcem môžem môžeš môžete pomoc pomôž pomôže spraviť urobiť povedať odpoveď otázka otázku mám máš máme váš vaša moje som sme bude bolo ktorý ktorá ktoré ešte tiež veľmi teraz'.split(' '),
   sl: 'in ali ampak ni je so da kako kje kdaj zakaj za s na do kaj hvala živjo prosim potrebujem želim lahko pomoč'.split(' '),
   hr: 'i ili ali nije je su da kako gdje kada zašto za s sa na do što hvala bok molim trebam želim mogu pomoć'.split(' '),
   sr: 'i ili ali nije je su da kako gde kada zašto za s sa na do šta hvala zdravo molim treba želim mogu pomoć'.split(' '),
@@ -106,6 +106,10 @@ function scoreLanguages(words) {
 
 export function detectLanguage(text, fallback = 'en') {
   if (!text || typeof text !== 'string') return fallback
+
+  // Characters unique to Slovak among the closely related Latin-script
+  // languages are a stronger signal than short-message word frequency.
+  if (/[äĺľôŕ]/iu.test(text)) return 'sk'
 
   const words = normalizeWords(text)
   if (words.length === 0) return fallback
