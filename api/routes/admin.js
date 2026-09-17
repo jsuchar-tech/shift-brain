@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import { detectLanguage } from '../lib/detectLanguage.js'
+import { clerkClient } from '../lib/clerk.js'
+import { clerkProfile } from '../lib/clerkProfile.js'
 
 const router = Router()
 
@@ -17,7 +19,62 @@ router.get('/users', async (req, res) => {
 
     if (error) throw error
 
-    const users = storedUsers || []
+    let users = storedUsers || []
+
+    // Import Clerk signups that were completed before the browser could call
+    // /auth/sync. Existing participant records remain static and are never
+    // overwritten from Clerk; this only discovers genuinely missing accounts.
+    try {
+      const clerkPage = await clerkClient.users.getUserList({ limit: 500 })
+      const knownClerkIds = new Set(users.map(user => user.clerk_user_id).filter(Boolean))
+      const knownEmails = new Map(users.map(user => [String(user.work_email || '').toLowerCase(), user]))
+
+      for (const clerkUser of clerkPage.data) {
+        if (knownClerkIds.has(clerkUser.id)) continue
+
+        const profile = clerkProfile(clerkUser)
+        const emailKey = String(profile.work_email || '').toLowerCase()
+        const emailMatch = emailKey ? knownEmails.get(emailKey) : null
+
+        if (emailMatch) {
+          const { data: linked, error: linkError } = await supabase
+            .from('users')
+            .update({ clerk_user_id: clerkUser.id })
+            .eq('id', emailMatch.id)
+            .select()
+            .single()
+          if (linkError) throw linkError
+          users = users.map(user => user.id === linked.id ? linked : user)
+          knownClerkIds.add(clerkUser.id)
+          continue
+        }
+
+        const { data: created, error: createError } = await supabase
+          .from('users')
+          .insert({
+            clerk_user_id: clerkUser.id,
+            ...profile,
+            role: profile.role || 'participant',
+            is_active: false
+          })
+          .select()
+          .single()
+
+        if (createError) throw createError
+        users.push(created)
+        knownClerkIds.add(clerkUser.id)
+        if (emailKey) knownEmails.set(emailKey, created)
+
+        await supabase.from('token_limits').insert({
+          user_id: created.id,
+          daily_limit: Number.parseInt(process.env.DAILY_TOKEN_LIMIT, 10) || 30000,
+          monthly_limit: Number.parseInt(process.env.MONTHLY_TOKEN_LIMIT, 10) || 500000
+        })
+      }
+    } catch (clerkError) {
+      // Keep the dashboard available from local data during Clerk outages.
+      console.error('Failed to import pending Clerk signups:', clerkError)
+    }
 
     const { data: usage } = await supabase
       .from('user_token_usage')

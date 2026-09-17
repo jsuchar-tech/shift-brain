@@ -263,13 +263,22 @@ export function CreateAccountScreen({ onBack, brainIcon, theme }) {
     setIsSubmitting(true)
     try {
       const names = fullName.trim().split(/\s+/)
-      await signUp.create({
+      const result = await signUp.create({
         emailAddress,
         password,
         firstName: names.shift() || undefined,
         lastName: names.join(' ') || undefined,
         unsafeMetadata: { country_office: country }
       })
+
+      // Clerk can complete signups immediately when email verification is
+      // disabled. Preparing a verification attempt after that state produces
+      // "No sign up attempt was found", even though the user was created.
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId })
+        return
+      }
+
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setStage('verify')
     } catch (err) {

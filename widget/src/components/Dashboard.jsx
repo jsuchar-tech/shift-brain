@@ -75,11 +75,16 @@ function ParticipantsTab({ getToken }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    adminFetch('/admin/users', getToken)
+  async function loadUsers() {
+    setLoading(true)
+    return adminFetch('/admin/users', getToken)
       .then(d => setUsers((d.users || []).sort((a, b) => Number(a.is_active) - Number(b.is_active))))
       .catch(console.error)
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadUsers()
   }, [getToken])
 
   async function toggleUser(id, is_active) {
@@ -102,6 +107,7 @@ function ParticipantsTab({ getToken }) {
           <h2>Participants <span>{users.length}</span></h2>
           <p className="brain-admin-toolbar__description">{pendingCount ? `${pendingCount} signup${pendingCount === 1 ? '' : 's'} waiting for approval` : 'No signups waiting for approval'}</p>
         </div>
+        <button type="button" className="brain-admin-button" onClick={loadUsers}>Refresh signups</button>
       </div>
 
       <div className="brain-admin-table-wrap">
@@ -317,6 +323,7 @@ const DEFAULT_SETTINGS = {
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
   login_name_placeholder: 'Name',
+  login_email_placeholder: 'Email',
   login_password_placeholder: 'Password',
   login_forgot_password: 'Forgot password?',
   login_create_account: 'Create an account',
@@ -449,7 +456,7 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       <SettingsField label="Heading" value={form.login_heading} onChange={v => update('login_heading', v)} />
       <SettingsField label="Intro" value={form.login_intro} onChange={v => update('login_intro', v)} multiline />
       <SettingsField label="Emphasis" value={form.login_emphasis} onChange={v => update('login_emphasis', v)} />
-      <SettingsField label="Name placeholder" value={form.login_name_placeholder} onChange={v => update('login_name_placeholder', v)} />
+      <SettingsField label="Login email placeholder" value={form.login_email_placeholder} onChange={v => update('login_email_placeholder', v)} />
       <SettingsField label="Password placeholder" value={form.login_password_placeholder} onChange={v => update('login_password_placeholder', v)} />
       <SettingsField label="Forgot password text" value={form.login_forgot_password} onChange={v => update('login_forgot_password', v)} />
       <SettingsField label="Create account text" value={form.login_create_account} onChange={v => update('login_create_account', v)} />

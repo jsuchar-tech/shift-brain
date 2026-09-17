@@ -28,6 +28,7 @@ const DEFAULT_SETTINGS = {
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
   login_name_placeholder: 'Name',
+  login_email_placeholder: 'Email',
   login_password_placeholder: 'Password',
   login_forgot_password: 'Forgot password?',
   login_create_account: 'Create an account',

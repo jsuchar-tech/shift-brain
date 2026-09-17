@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
   login_name_placeholder: 'Name',
+  login_email_placeholder: 'Email',
   login_password_placeholder: 'Password',
   login_forgot_password: 'Forgot password?',
   login_create_account: 'Create an account',
@@ -66,10 +67,12 @@ function AppContent({ settings, onSettingsChange }) {
   const [view, setView] = useState('chat')
   const [localUser, setLocalUser] = useState(null)
   const [accessState, setAccessState] = useState('checking')
+  const [accessError, setAccessError] = useState('')
 
   async function refreshAccess() {
     if (!user) return
     try {
+      setAccessError('')
       const metadata = user.publicMetadata || {}
       const signupMetadata = user.unsafeMetadata || {}
       const data = await syncUser(getToken, {
@@ -82,6 +85,7 @@ function AppContent({ settings, onSettingsChange }) {
       setAccessState(data.user?.is_active ? 'approved' : 'pending')
     } catch (error) {
       console.error('Failed to check account approval:', error)
+      setAccessError(error.message || 'The account could not be synchronized.')
       setAccessState('error')
     }
   }
@@ -110,7 +114,7 @@ function AppContent({ settings, onSettingsChange }) {
         <img src={copy.brain_icon_url || LOGIN_ASSETS.brain} alt="" />
         {accessState === 'checking' && <><h1>Checking your account…</h1><p>Please wait a moment.</p></>}
         {accessState === 'pending' && <><h1>{copy.signup_pending_heading}</h1><p>{copy.signup_pending_message}</p></>}
-        {accessState === 'error' && <><h1>We couldn’t check your account</h1><p>Please try again or return to the login screen.</p></>}
+        {accessState === 'error' && <><h1>We couldn’t check your account</h1><p>{accessError} Please try again or return to the login screen.</p></>}
         <div className="brain-approval__actions">
           {accessState !== 'checking' && <button type="button" onClick={refreshAccess}>Check again</button>}
           <button type="button" onClick={() => signOut().then(() => window.location.reload())}>Back to login</button>
@@ -193,13 +197,13 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
 
         <form className="brain-login__form" onSubmit={handleSubmit}>
           <label className="brain-login__field">
-            <span className="sr-only">Name</span>
+            <span className="sr-only">Email</span>
             <input
-              type="text"
+              type="email"
               value={identifier}
               onChange={event => setIdentifier(event.target.value)}
-              placeholder={copy.login_name_placeholder}
-              autoComplete="username"
+              placeholder={copy.login_email_placeholder || 'Email'}
+              autoComplete="email"
               required
             />
           </label>

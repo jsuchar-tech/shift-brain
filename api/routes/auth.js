@@ -37,6 +37,30 @@ router.post('/sync', async (req, res) => {
     const clerkUser = await clerkClient.users.getUser(clerkUserId)
     const profile = clerkProfile(clerkUser, req.body)
 
+    // Recover accounts created in Clerk before local synchronization finished.
+    // A verified matching email is safe to reconnect, while preserving all
+    // locally curated participant fields and approval status.
+    if (profile.work_email) {
+      const { data: emailMatch, error: emailLookupError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('work_email', profile.work_email)
+        .maybeSingle()
+
+      if (emailLookupError) throw emailLookupError
+      if (emailMatch) {
+        const { data: linkedUser, error: linkError } = await supabase
+          .from('users')
+          .update({ clerk_user_id: clerkUserId })
+          .eq('id', emailMatch.id)
+          .select()
+          .single()
+
+        if (linkError) throw linkError
+        return res.json({ message: 'User linked', user: linkedUser })
+      }
+    }
+
     const { data: user, error } = await supabase
       .from('users')
       .insert({
@@ -48,7 +72,17 @@ router.post('/sync', async (req, res) => {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      // A simultaneous first load may have created the row between the lookup
+      // and insert. Return that row instead of leaving the user on an error.
+      const { data: recovered } = await supabase
+        .from('users')
+        .select('*')
+        .eq('clerk_user_id', clerkUserId)
+        .maybeSingle()
+      if (recovered) return res.json({ message: 'User synced', user: recovered })
+      throw error
+    }
 
     await supabase.from('token_limits').insert({
       user_id: user.id,
@@ -59,7 +93,7 @@ router.post('/sync', async (req, res) => {
     res.json({ message: 'User created', user })
   } catch (err) {
     console.error('Sync error:', err)
-    res.status(500).json({ error: 'Failed to sync user', details: err.message })
+    res.status(500).json({ error: 'Failed to sync user', details: err.message, code: err.code || 'USER_SYNC_FAILED' })
   }
 })
 

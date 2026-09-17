@@ -39,7 +39,12 @@ export async function syncUser(getToken, userData) {
     headers,
     body: JSON.stringify(userData)
   })
-  if (!res.ok) throw new Error('Failed to sync user')
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const error = new Error(data.details || data.error || 'Failed to sync user')
+    error.code = data.code
+    throw error
+  }
   return res.json()
 }
 

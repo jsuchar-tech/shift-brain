@@ -426,6 +426,7 @@ export default function ConversationSidebar({
           .brain-sidebar {
             position: absolute;
             left: 0;
+            right: 0;
             top: 0;
             bottom: 0;
             width: 100%;
@@ -442,6 +443,8 @@ export default function ConversationSidebar({
           .brain-sidebar.is-collapsed { width: 100%; flex-basis: 100%; }
           .brain-sidebar.is-collapsed .brain-sidebar__content,
           .brain-sidebar.is-collapsed .brain-sidebar__logout { opacity: 1; transform: translate3d(0, 0, 0); pointer-events: auto; }
+          .brain-sidebar__content,
+          .brain-sidebar__logout { width: 100%; min-width: 100%; }
           .brain-sidebar__title { margin-left: 30px; }
           .brain-sidebar__list { padding-right: 30px; padding-left: 30px; }
           .brain-sidebar__collapse { display: none; }
