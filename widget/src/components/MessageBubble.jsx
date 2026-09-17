@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import SourceCitations from './SourceCitations'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 
 function CopyButton({ content }) {
   const [copied, setCopied] = useState(false)
@@ -28,7 +28,7 @@ function CopyButton({ content }) {
   )
 }
 
-export default function MessageBubble({ message, fontSize = 16 }) {
+function MessageBubble({ message, fontSize = 16 }) {
   const isUser = message.role === 'user'
 
   return (
@@ -132,3 +132,5 @@ export default function MessageBubble({ message, fontSize = 16 }) {
     </article>
   )
 }
+
+export default memo(MessageBubble)

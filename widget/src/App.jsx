@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ClerkProvider,
   SignedIn,
@@ -12,54 +12,9 @@ import Dashboard from './components/Dashboard'
 import ErrorBoundary from './components/errorBoundary'
 import { CreateAccountScreen, ForgotPasswordScreen } from './components/AuthScreens'
 import { API_URL, syncUser } from './lib/api'
+import { DEFAULT_SETTINGS } from './config/settings'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-const DEFAULT_SETTINGS = {
-  brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
-  plus_base_icon_url: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
-  plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
-  send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
-  send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
-  sidebar_open_icon_url: '',
-  sidebar_close_icon_url: '',
-  search_icon_url: '',
-  upload_file_icon_url: '',
-  send_message_icon_url: '',
-  color_cream: '#fdfbef',
-  color_ink: '#0b0b2d',
-  color_pink: '#ff008f',
-  color_purple: '#302798',
-  color_muted: '#b7b7b7',
-  color_yellow: '#ffd000',
-  color_white: '#ffffff',
-  color_line: '#deddd5',
-  color_soft_pink: '#ffc2df',
-  color_success: '#2d7a3a',
-  color_danger: '#c53030',
-  login_heading: 'Hello there!',
-  login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
-  login_emphasis: 'Ask me anything related to SHIFT!',
-  login_name_placeholder: 'Name',
-  login_email_placeholder: 'Email',
-  login_password_placeholder: 'Password',
-  login_forgot_password: 'Forgot password?',
-  login_create_account: 'Create an account',
-  login_button: 'LOG IN',
-  signup_pending_heading: 'Your account is awaiting approval',
-  signup_pending_message: 'A curator needs to approve your signup before you can access SHIFT Brain. You can leave this page and return later.',
-  dashboard_title: 'Curator Dashboard',
-  dashboard_back_to_chat: '← Back to chat',
-  dashboard_participants: 'Participants',
-  dashboard_conversations: 'Conversations',
-  dashboard_knowledge: 'Knowledge base',
-  dashboard_usage: 'Usage stats',
-  dashboard_settings: 'Settings',
-  chat_welcome: 'Let’s start building your movement today!'
-}
-
-const LOGIN_ASSETS = {
-  brain: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png'
-}
 
 function AppContent({ settings, onSettingsChange }) {
   const { getToken, signOut } = useAuth()
@@ -69,7 +24,7 @@ function AppContent({ settings, onSettingsChange }) {
   const [accessState, setAccessState] = useState('checking')
   const [accessError, setAccessError] = useState('')
 
-  async function refreshAccess() {
+  const refreshAccess = useCallback(async () => {
     if (!user) return
     try {
       setAccessError('')
@@ -93,14 +48,18 @@ function AppContent({ settings, onSettingsChange }) {
       setAccessError(error.message || 'The account could not be synchronized.')
       setAccessState('error')
     }
-  }
+  }, [getToken, user])
 
   useEffect(() => {
     if (!user) return undefined
     refreshAccess()
+  }, [user, refreshAccess])
+
+  useEffect(() => {
+    if (accessState !== 'pending') return undefined
     const timer = window.setInterval(refreshAccess, 15000)
     return () => window.clearInterval(timer)
-  }, [user, getToken])
+  }, [accessState, refreshAccess])
 
   const isAdmin = localUser?.role === 'admin' || user?.publicMetadata?.role === 'admin'
 
@@ -116,7 +75,7 @@ function AppContent({ settings, onSettingsChange }) {
           '--purple': copy.color_purple
         }}
       >
-        <img src={copy.brain_icon_url || LOGIN_ASSETS.brain} alt="" />
+        <img src={copy.brain_icon_url || DEFAULT_SETTINGS.brain_icon_url} alt="" />
         {accessState === 'checking' && <><h1>Checking your account…</h1><p>Please wait a moment.</p></>}
         {accessState === 'pending' && <><h1>{copy.signup_pending_heading}</h1><p>{copy.signup_pending_message}</p></>}
         {accessState === 'error' && <><h1>We couldn’t check your account</h1><p>{accessError} Please try again or return to the login screen.</p></>}
@@ -192,7 +151,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
       '--danger': copy.color_danger
     }}>
       <main className="brain-login__content">
-        <img src={copy.brain_icon_url || LOGIN_ASSETS.brain} alt="" className="brain-login__brain" />
+        <img src={copy.brain_icon_url || DEFAULT_SETTINGS.brain_icon_url} alt="" className="brain-login__brain" />
         <h1>{copy.login_heading}</h1>
 
         <div className="brain-login__intro">
@@ -493,17 +452,23 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
-    fetch(`${API_URL}/config`)
+    fetch(`${API_URL}/config`, { signal: controller.signal })
       .then(response => response.ok ? response.json() : null)
       .then(data => {
         if (!cancelled && data?.settings) {
           setSettings(current => ({ ...current, ...data.settings }))
         }
       })
-      .catch(() => {})
+      .catch(error => {
+        if (error.name !== 'AbortError') console.warn('Using default settings:', error)
+      })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [])
 
   return (

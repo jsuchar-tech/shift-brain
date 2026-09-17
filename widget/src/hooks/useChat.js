@@ -4,7 +4,6 @@ import { streamChat } from '../lib/api'
 export function useChat(getToken) {
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
-  const [citations, setCitations] = useState([])
   const [conversationId, setConversationId] = useState(null)
   const [error, setError] = useState(null)
 
@@ -14,7 +13,6 @@ export function useChat(getToken) {
 
       setIsLoading(true)
       setError(null)
-      setCitations([])
 
       const userId = Date.now()
 
@@ -32,6 +30,23 @@ export function useChat(getToken) {
       ])
 
       const assistantId = Date.now() + Math.random()
+      let pendingText = ''
+      let animationFrame = null
+
+      const flushPendingText = () => {
+        if (!pendingText) return
+        const nextText = pendingText
+        pendingText = ''
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantId ? { ...msg, content: msg.content + nextText } : msg
+        ))
+      }
+
+      const cancelPendingFrame = () => {
+        if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+        animationFrame = null
+        flushPendingText()
+      }
 
       setMessages(prev => [
         ...prev,
@@ -50,20 +65,17 @@ export function useChat(getToken) {
         attachment,
 
         onText: chunk => {
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === assistantId
-                ? {
-                    ...msg,
-                    content: msg.content + chunk
-                  }
-                : msg
-            )
-          )
+          pendingText += chunk
+          if (animationFrame === null) {
+            animationFrame = requestAnimationFrame(() => {
+              animationFrame = null
+              flushPendingText()
+            })
+          }
         },
 
         onCitations: cits => {
-          setCitations(cits)
+          cancelPendingFrame()
 
           setMessages(prev =>
             prev.map(msg =>
@@ -79,6 +91,7 @@ export function useChat(getToken) {
         },
 
         onDone: () => {
+          cancelPendingFrame()
           setIsLoading(false)
 
           setMessages(prev =>
@@ -94,6 +107,9 @@ export function useChat(getToken) {
         },
 
         onError: err => {
+          if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+          animationFrame = null
+          pendingText = ''
           setIsLoading(false)
           setError(err.message || 'Something went wrong')
 
@@ -112,7 +128,6 @@ export function useChat(getToken) {
 
   const clearChat = useCallback(() => {
     setMessages([])
-    setCitations([])
     setConversationId(null)
     setError(null)
   }, [])
@@ -129,14 +144,11 @@ export function useChat(getToken) {
         attachments: m.attachments || []
       }))
     )
-
-    setCitations([])
   }, [])
 
   return {
     messages,
     isLoading,
-    citations,
     conversationId,
     error,
     sendMessage,

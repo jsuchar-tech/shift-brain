@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { API_URL } from '../lib/api'
+import { DEFAULT_SETTINGS } from '../config/settings'
 
 async function adminFetch(path, getToken, options = {}) {
   const token = await getToken()
@@ -297,49 +298,6 @@ function StatsTab({ getToken }) {
   </div>
 }
 
-const DEFAULT_SETTINGS = {
-  brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
-  plus_base_icon_url: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
-  plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
-  send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
-  send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
-  sidebar_open_icon_url: '',
-  sidebar_close_icon_url: '',
-  search_icon_url: '',
-  upload_file_icon_url: '',
-  send_message_icon_url: '',
-  color_cream: '#fdfbef',
-  color_ink: '#0b0b2d',
-  color_pink: '#ff008f',
-  color_purple: '#302798',
-  color_muted: '#b7b7b7',
-  color_yellow: '#ffd000',
-  color_white: '#ffffff',
-  color_line: '#deddd5',
-  color_soft_pink: '#ffc2df',
-  color_success: '#2d7a3a',
-  color_danger: '#c53030',
-  login_heading: 'Hello there!',
-  login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
-  login_emphasis: 'Ask me anything related to SHIFT!',
-  login_name_placeholder: 'Name',
-  login_email_placeholder: 'Email',
-  login_password_placeholder: 'Password',
-  login_forgot_password: 'Forgot password?',
-  login_create_account: 'Create an account',
-  login_button: 'LOG IN',
-  signup_pending_heading: 'Your account is awaiting approval',
-  signup_pending_message: 'A curator needs to approve your signup before you can access SHIFT Brain. You can leave this page and return later.',
-  dashboard_title: 'Curator Dashboard',
-  dashboard_back_to_chat: '← Back to chat',
-  dashboard_participants: 'Participants',
-  dashboard_conversations: 'Conversations',
-  dashboard_knowledge: 'Knowledge base',
-  dashboard_usage: 'Usage stats',
-  dashboard_settings: 'Settings',
-  chat_welcome: 'Let’s start building your movement today!'
-}
-
 function SettingsField({ label, value, onChange, multiline = false, type = 'text', help }) {
   return <label className="brain-admin-field">
     <span className="brain-admin-field__label">{label}</span>
@@ -361,8 +319,10 @@ function ColorField({ label, value, onChange }) {
 function SettingsTab({ getToken, settings, onSettingsChange }) {
   const [form, setForm] = useState({ ...DEFAULT_SETTINGS, ...(settings || {}) })
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
+  const saveTimerRef = useRef(null)
+  const saveSequenceRef = useRef(0)
+  const pendingSaveRef = useRef(null)
 
   useEffect(() => {
     adminFetch('/admin/settings', getToken)
@@ -381,39 +341,55 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       .finally(() => setLoading(false))
   }, [getToken])
 
-  function update(key, value) {
-    setForm(prev => {
-      const next = { ...prev, [key]: value }
-      // Apply theme and asset edits immediately so curators can verify them
-      // before saving; the PATCH below remains the persistence boundary.
-      onSettingsChange?.(next)
-      return next
-    })
-    setStatus('')
+  useEffect(() => () => {
+    window.clearTimeout(saveTimerRef.current)
+    saveSequenceRef.current += 1
+    if (pendingSaveRef.current) {
+      adminFetch('/admin/settings', getToken, {
+        method: 'PATCH',
+        body: JSON.stringify(pendingSaveRef.current)
+      }).catch(() => {})
+    }
+  }, [getToken])
+
+  function scheduleSave(next) {
+    window.clearTimeout(saveTimerRef.current)
+    const sequence = ++saveSequenceRef.current
+    pendingSaveRef.current = next
+    setStatus('Saving…')
+
+    saveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const data = await adminFetch('/admin/settings', getToken, {
+          method: 'PATCH',
+          body: JSON.stringify(next)
+        })
+        if (sequence !== saveSequenceRef.current) return
+
+        const saved = { ...DEFAULT_SETTINGS, ...(data.settings || next) }
+        pendingSaveRef.current = null
+        setForm(saved)
+        onSettingsChange?.(saved)
+        setStatus('Saved')
+      } catch (err) {
+        if (sequence !== saveSequenceRef.current) return
+        setStatus(err.message || 'Failed to save settings')
+      }
+    }, 450)
   }
 
-  async function save() {
-    setSaving(true)
-    setStatus('')
-    try {
-      const data = await adminFetch('/admin/settings', getToken, { method: 'PATCH', body: JSON.stringify(form) })
-      const next = { ...DEFAULT_SETTINGS, ...(data.settings || form) }
-      setForm(next)
-      onSettingsChange?.(next)
-      setStatus('Saved.')
-    } catch (err) {
-      setStatus(err.message || 'Failed to save settings')
-    } finally {
-      setSaving(false)
-    }
+  function update(key, value) {
+    const next = { ...form, [key]: value }
+    setForm(next)
+    onSettingsChange?.(next)
+    scheduleSave(next)
   }
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading settings...</p>
 
   return <div className="brain-admin-settings">
     <div className="brain-admin-toolbar">
-      <div><p className="brain-admin-eyebrow">Appearance</p><h2>Branding & copy</h2><p className="brain-admin-toolbar__description">Used by the login screen, chat welcome screen and curator dashboard.</p></div>
-      <button className="brain-admin-button brain-admin-button--primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</button>
+      <div><p className="brain-admin-eyebrow">Appearance</p><h2>Branding & copy</h2><p className="brain-admin-toolbar__description">Changes are saved automatically and used by the login screen, chat welcome screen and curator dashboard.</p></div>
     </div>
 
     <div className="brain-admin-settings__grid">
@@ -482,7 +458,7 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
     </section>
     </div>
 
-    {status && <p style={{ marginTop: '12px', color: status === 'Saved.' ? 'var(--success)' : 'var(--danger)', fontSize: '12px' }}>{status}</p>}
+    {status && <p aria-live="polite" style={{ marginTop: '12px', color: status === 'Saved' ? 'var(--success)' : status === 'Saving…' ? 'var(--muted)' : 'var(--danger)', fontSize: '12px' }}>{status}</p>}
   </div>
 }
 

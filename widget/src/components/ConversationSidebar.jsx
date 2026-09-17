@@ -36,9 +36,10 @@ export default function ConversationSidebar({
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
+    if (!open) return undefined
     const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [open])
 
   const filteredConversations = useMemo(() => {
     const query = search.trim().toLocaleLowerCase()

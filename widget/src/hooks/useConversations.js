@@ -3,17 +3,13 @@ import { fetchConversations, fetchConversation } from '../lib/api'
 
 export function useConversations(getToken) {
   const [conversations, setConversations] = useState([])
-  const [loading, setLoading] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
-      setLoading(true)
       const data = await fetchConversations(getToken)
       setConversations(data.conversations || [])
     } catch (err) {
       console.error('Failed to fetch conversations:', err)
-    } finally {
-      setLoading(false)
     }
   }, [getToken])
 
@@ -26,5 +22,5 @@ export function useConversations(getToken) {
     return data
   }, [getToken])
 
-  return { conversations, loading, refresh, loadThread }
+  return { conversations, refresh, loadThread }
 }

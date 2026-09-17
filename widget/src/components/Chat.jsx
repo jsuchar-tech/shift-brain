@@ -7,14 +7,7 @@ import { useChat } from '../hooks/useChat'
 import { useTokenUsage } from '../hooks/useTokenUsage'
 import { useConversations } from '../hooks/useConversations'
 import { uploadFile, updateFontSize } from '../lib/api'
-
-const ASSETS = {
-  brain: 'https://www.figma.com/api/mcp/asset/09ee25a7-b3ca-4128-96ee-5d6f95faff76.png',
-  plusBase: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
-  plusIcon: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
-  sendBase: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
-  sendIcon: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg'
-}
+import { DEFAULT_SETTINGS } from '../config/settings'
 
 const FONT_SIZE_PRESETS = [14, 16, 18]
 
@@ -106,11 +99,11 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
   const showWelcome = messages.length === 0
   const welcomeCopy = settings?.chat_welcome || 'Let’s start building your movement today!'
   const assets = {
-    brain: settings?.brain_icon_url || ASSETS.brain,
-    plusBase: settings?.plus_base_icon_url || ASSETS.plusBase,
-    plusIcon: settings?.plus_glyph_icon_url || ASSETS.plusIcon,
-    sendBase: settings?.send_base_icon_url || ASSETS.sendBase,
-    sendIcon: settings?.send_glyph_icon_url || ASSETS.sendIcon,
+    brain: settings?.brain_icon_url || DEFAULT_SETTINGS.brain_icon_url,
+    plusBase: settings?.plus_base_icon_url || DEFAULT_SETTINGS.plus_base_icon_url,
+    plusIcon: settings?.plus_glyph_icon_url || DEFAULT_SETTINGS.plus_glyph_icon_url,
+    sendBase: settings?.send_base_icon_url || DEFAULT_SETTINGS.send_base_icon_url,
+    sendIcon: settings?.send_glyph_icon_url || DEFAULT_SETTINGS.send_glyph_icon_url,
     sidebarOpen: settings?.sidebar_open_icon_url || '',
     sidebarClose: settings?.sidebar_close_icon_url || '',
     search: settings?.search_icon_url || '',

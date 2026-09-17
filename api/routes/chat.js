@@ -238,14 +238,15 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     const queryEmbedding = await embedQuery(message)
     const chunks = await retrieveChunks(queryEmbedding, message)
 
-    console.log('Retrieved chunks (after reranking):')
-    chunks.forEach((c, i) => {
-      const score = c.rerank_score !== undefined
-        ? `rerank: ${c.rerank_score?.toFixed(3)}`
-        : `similarity: ${c.similarity?.toFixed(3)}`
-      console.log(`  [${i+1}] ${c.source_file_name} (${score})`)
-      console.log(`       ${c.content.slice(0, 150).replace(/\n/g, ' ')}...`)
-    })
+    if (process.env.DEBUG_RETRIEVAL === 'true') {
+      console.log('Retrieved chunks (after reranking):')
+      chunks.forEach((chunk, index) => {
+        const score = chunk.rerank_score !== undefined
+          ? `rerank: ${chunk.rerank_score?.toFixed(3)}`
+          : `similarity: ${chunk.similarity?.toFixed(3)}`
+        console.log(`  [${index + 1}] ${chunk.source_file_name} (${score})`)
+      })
+    }
 
     const contextText = formatChunksForPrompt(chunks)
     const citationData = formatChunksForCitation(chunks)

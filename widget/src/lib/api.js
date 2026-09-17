@@ -91,18 +91,24 @@ export async function streamChat({
 }) {
   const token = await getToken()
 
-  const res = await fetch(`${API_URL}/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      message,
-      conversation_id: conversationId,
-      attachment
+  let res
+  try {
+    res = await fetch(`${API_URL}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        message,
+        conversation_id: conversationId,
+        attachment
+      })
     })
-  })
+  } catch {
+    onError({ message: 'Unable to reach SHIFT Brain. Please try again.' })
+    return null
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Request failed' }))
@@ -110,36 +116,60 @@ export async function streamChat({
     return null
   }
 
+  const contentType = res.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    const data = await res.json()
+    if (data.response) onText(data.response)
+    onDone(data)
+    return data.conversation_id || null
+  }
+
+  if (!res.body) {
+    onError({ message: 'The response stream was unavailable. Please try again.' })
+    return null
+  }
+
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let conversationId_returned = null
+  let pending = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    const chunk = decoder.decode(value)
-    const lines = chunk.split('\n')
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
-      try {
-        const data = JSON.parse(line.slice(6))
-        if (data.type === 'conversation_id') {
-          conversationId_returned = data.conversation_id
-        } else if (data.type === 'text') {
-          onText(data.text)
-        } else if (data.type === 'citations') {
-          onCitations(data.citations)
-        } else if (data.type === 'done') {
-          onDone(data)
-        } else if (data.type === 'error') {
-          onError(data)
-        }
-      } catch (e) {
-        // Skip malformed chunks
+  function handleLine(line) {
+    if (!line.startsWith('data: ')) return
+    try {
+      const data = JSON.parse(line.slice(6))
+      if (data.type === 'conversation_id') {
+        conversationId_returned = data.conversation_id
+      } else if (data.type === 'text') {
+        onText(data.text)
+      } else if (data.type === 'citations') {
+        onCitations(data.citations)
+      } else if (data.type === 'done') {
+        onDone(data)
+      } else if (data.type === 'error') {
+        onError(data)
       }
+    } catch {
+      // Ignore a malformed event without dropping adjacent valid events.
     }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      pending += decoder.decode(value, { stream: true })
+      const lines = pending.split('\n')
+      pending = lines.pop() || ''
+      lines.forEach(handleLine)
+    }
+
+    pending += decoder.decode()
+    if (pending) handleLine(pending)
+  } catch {
+    onError({ message: 'The response was interrupted. Please try again.' })
+    return conversationId_returned
   }
 
   return conversationId_returned
