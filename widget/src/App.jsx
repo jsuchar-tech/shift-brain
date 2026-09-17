@@ -331,6 +331,14 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           .brain-login__intro { left: 30px; width: calc(100% - 60px); }
           .brain-login__forgot { font-size: 12px; }
         }
+
+        @media (max-width: 767px) {
+          .brain-login__content { min-height: 688px; }
+          .brain-login__brain { top: 28px; }
+          .brain-login h1 { top: 156px; }
+          .brain-login__intro { top: 214px; }
+          .brain-login__form { top: 405px; }
+        }
       `}</style>
     </div>
   )

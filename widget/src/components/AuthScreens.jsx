@@ -209,9 +209,14 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null }) {
         }
 
         @media (max-width: 767px) {
-          .brain-auth__content { min-height: 783px; }
-          .brain-auth__form { width: 331px; }
-          .brain-auth--signup .brain-auth__form { top: 351px; }
+          .brain-auth__content { min-height: 688px; }
+          .brain-auth__brain { top: 28px; }
+          .brain-auth h1 { top: 156px; }
+          .brain-auth__form { width: 329px; }
+          .brain-auth--signup .brain-auth__form { top: 255px; }
+          .brain-auth--forgot .brain-auth__form { top: 337px; }
+          .brain-auth__help { top: 583px; width: min(330px, calc(100% - 60px)); font-size: 11px; line-height: 20px; }
+          .brain-auth__field input { font-size: 15px; }
           .brain-auth__actions { gap: 24px; }
         }
       `}</style>
@@ -295,7 +300,7 @@ export function CreateAccountScreen({ onBack }) {
         {error && <p className="brain-auth__error" role="alert">{error}</p>}
 
         <div className="brain-auth__actions">
-          <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
+          {stage === 'verify' && <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>}
           <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
             <span>{isSubmitting ? 'WAIT' : stage === 'verify' ? 'VERIFY' : 'SEND'}</span>
           </button>
@@ -390,7 +395,7 @@ export function ForgotPasswordScreen({ onBack }) {
         {error && <p className="brain-auth__error" role="alert">{error}</p>}
 
         <div className="brain-auth__actions">
-          <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
+          {stage === 'reset' && <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>}
           <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
             <span>{isSubmitting ? 'WAIT' : stage === 'request' ? 'SEND' : 'RESET'}</span>
           </button>

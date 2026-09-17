@@ -458,7 +458,7 @@ export default function Chat({ onOpenDashboard, settings }) {
             padding-top: 52px;
             padding-bottom: 18px;
           }
-          .brain-chat__composer { padding: 12px 30px 20px; }
+          .brain-chat__composer { padding: 12px 30px 38px; }
           .brain-chat__sidebar-backdrop {
             position: absolute;
             z-index: 9;
@@ -496,7 +496,7 @@ export default function Chat({ onOpenDashboard, settings }) {
             align-items: center;
             justify-content: center;
             gap: 34px;
-            padding: 48px 30px 24px;
+            padding: 92px 30px 24px;
           }
           .brain-chat__brain,
           .brain-chat__welcome h1 {
@@ -506,7 +506,9 @@ export default function Chat({ onOpenDashboard, settings }) {
           .brain-chat__composer.is-welcome {
             position: relative;
             bottom: auto;
-            padding: 12px 30px 20px;
+            flex: 0 0 185px;
+            height: 185px;
+            padding: 12px 30px 38px;
           }
         }
       `}</style>

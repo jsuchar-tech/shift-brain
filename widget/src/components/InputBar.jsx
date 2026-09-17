@@ -32,7 +32,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
   }
 
   return (
-    <div className={`brain-input ${showWelcome ? 'is-welcome' : 'is-active'}`}>
+    <div className={`brain-input ${showWelcome ? 'is-welcome' : 'is-active'} ${value ? 'has-value' : ''}`}>
       {uploadedFile && (
         <div className="brain-input__attachment">
           <span>{uploadedFile.file_name}</span>
@@ -181,9 +181,13 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
             width: 100%;
             max-width: 330px;
             height: 106px;
+            transition: height .16s ease;
           }
+          .brain-input.has-value { height: 135px; transform: translateY(6px); }
+          .brain-chat__composer.is-welcome .brain-input:not(.has-value) { margin-top: 29px; }
           .brain-input__box { padding: 17px 14px 8px; }
           .brain-input textarea { height: 42px; font-size: 14px; line-height: 28px; }
+          .brain-input.has-value textarea { height: 70px; overflow-y: auto; }
           .brain-input__footer { gap: 22px; padding: 7px 0; }
           .brain-input__tokens { width: 127px; font-size: 10px; }
         }
