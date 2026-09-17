@@ -139,11 +139,12 @@ export default function ConversationSidebar({
 
       <style>{`
         .brain-sidebar {
+          --sidebar-width: clamp(270px, calc(146px + 16.1vw), 346px);
           position: sticky;
           top: 0;
           z-index: 10;
-          flex: 0 0 clamp(270px, calc(146px + 16.1vw), 346px);
-          width: clamp(270px, calc(146px + 16.1vw), 346px);
+          flex: 0 0 var(--sidebar-width);
+          width: var(--sidebar-width);
           height: 100%;
           max-height: 100%;
           display: flex;
@@ -170,12 +171,16 @@ export default function ConversationSidebar({
           overflow: hidden;
           padding: 16px 0 0;
           opacity: 1;
-          transition: opacity .2s ease .08s;
+          width: var(--sidebar-width);
+          min-width: var(--sidebar-width);
+          transform: translate3d(0, 0, 0);
+          transition: opacity .2s ease, transform .38s cubic-bezier(.22, 1, .36, 1);
         }
 
         .brain-sidebar.is-collapsed .brain-sidebar__content,
         .brain-sidebar.is-collapsed .brain-sidebar__logout {
           opacity: 0;
+          transform: translate3d(-100%, 0, 0);
           pointer-events: none;
         }
 
@@ -369,7 +374,8 @@ export default function ConversationSidebar({
 
         .brain-sidebar__logout {
           flex: 0 0 67px;
-          width: 100%;
+          width: var(--sidebar-width);
+          min-width: var(--sidebar-width);
           padding: 0 0 0 clamp(24px, calc(24px + (100vw - 768px) * .07), 57px);
           border: 0;
           border-top: 1px solid #deddd5;
@@ -378,6 +384,9 @@ export default function ConversationSidebar({
           font: 12px/30px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           text-align: left;
           cursor: pointer;
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+          transition: opacity .2s ease, transform .38s cubic-bezier(.22, 1, .36, 1), color .3s ease;
         }
 
         .brain-sidebar__mobile-close { display: none; }
@@ -425,7 +434,7 @@ export default function ConversationSidebar({
           .brain-sidebar.is-open { transform: translate3d(0, 0, 0); visibility: visible; transition-delay: 0s; }
           .brain-sidebar.is-collapsed { width: 100%; flex-basis: 100%; }
           .brain-sidebar.is-collapsed .brain-sidebar__content,
-          .brain-sidebar.is-collapsed .brain-sidebar__logout { opacity: 1; pointer-events: auto; }
+          .brain-sidebar.is-collapsed .brain-sidebar__logout { opacity: 1; transform: translate3d(0, 0, 0); pointer-events: auto; }
           .brain-sidebar__title { margin-left: 30px; }
           .brain-sidebar__list { padding-right: 30px; padding-left: 30px; }
           .brain-sidebar__collapse { display: none; }

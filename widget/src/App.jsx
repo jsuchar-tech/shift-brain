@@ -238,6 +238,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           color: var(--pink);
           font: 500 13px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           cursor: pointer;
+          transition: color 300ms ease-in-out, transform 300ms ease-in-out;
         }
 
         .brain-login__error {
@@ -262,7 +263,13 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           font: 500 13px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           text-decoration: none;
           cursor: pointer;
+          transition: color 300ms ease-in-out, transform 300ms ease-in-out;
         }
+
+        .brain-login__forgot:hover,
+        .brain-login__create:hover { color: #302798; transform: translateY(-1px); }
+        .brain-login__forgot:active,
+        .brain-login__create:active { transform: translateY(1px) scale(.98); }
 
         .brain-login__submit {
           position: relative;
@@ -339,6 +346,29 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
 
 function SignedOutFlow({ settings }) {
   const [view, setView] = useState('login')
+
+  useEffect(() => {
+    const host = document.getElementById('shift-brain-root')
+    if (!host) return undefined
+
+    const previous = {
+      height: host.style.height,
+      minHeight: host.style.minHeight,
+      overflow: host.style.overflow
+    }
+
+    // Authentication screens may be taller than the available chat viewport.
+    // Let them contribute to the Squarespace page height and use its scrollbar.
+    host.style.height = 'auto'
+    host.style.minHeight = '694px'
+    host.style.overflow = 'visible'
+
+    return () => {
+      host.style.height = previous.height
+      host.style.minHeight = previous.minHeight
+      host.style.overflow = previous.overflow
+    }
+  }, [])
 
   if (view === 'create-account') {
     return <CreateAccountScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} />

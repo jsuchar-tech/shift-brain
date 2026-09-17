@@ -535,9 +535,10 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         font-weight: 500;
         text-align: left;
         cursor: pointer;
+        transition: color 300ms ease-in-out, background-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
       }
 
-      .brain-admin-nav__item:hover { background: rgba(255,255,255,.75); color: var(--ink); }
+      .brain-admin-nav__item:hover { background: rgba(255,255,255,.75); color: #302798; transform: translateX(3px); }
       .brain-admin-nav__item.is-active { background: #fff; color: var(--pink); box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05); }
       .brain-admin-nav__dot { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
       .brain-admin-nav__item.is-active .brain-admin-nav__dot { background: var(--pink); }
@@ -552,7 +553,10 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         color: var(--pink);
         font-size: 12px;
         cursor: pointer;
+        transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
       }
+      .brain-dashboard__back:hover { border-color: var(--ink); background: #302798; color: #fff; box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
+      .brain-dashboard__back:active { box-shadow: 2px 2px var(--ink); transform: translate(2px, 2px); }
 
       .brain-dashboard__main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
       .brain-dashboard__topbar {
@@ -604,10 +608,13 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         color: var(--ink);
         font-size: 12px;
         cursor: pointer;
+        transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
       }
       .brain-admin-button--primary { min-height: 39px; padding: 0 18px; border-color: var(--ink); background: var(--pink); color: #fff; box-shadow: 3px 4px 0 var(--ink); }
       .brain-admin-button--small { min-height: 27px; margin-left: 10px; padding: 0 11px; }
       .brain-admin-button:disabled { opacity: .5; cursor: default; }
+      .brain-admin-button:hover:not(:disabled) { border-color: var(--ink); background: #302798; color: #fff; box-shadow: 4px 4px var(--ink); transform: rotate(-1deg); }
+      .brain-admin-button:active:not(:disabled) { box-shadow: 2px 2px var(--ink); transform: translate(2px, 2px); }
 
       .brain-admin-notice { margin-bottom: 18px; padding: 13px 15px; border: 1px solid #ffc5e4; border-radius: 9px; background: #fff3fa; font-size: 12px; line-height: 19px; }
       .brain-admin-notice span { color: var(--pink); word-break: break-all; }

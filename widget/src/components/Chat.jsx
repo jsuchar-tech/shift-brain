@@ -338,9 +338,13 @@ export default function Chat({ onOpenDashboard, settings }) {
         .brain-chat__font-button:hover:not(.is-active) { color: var(--pink); }
 
         .brain-chat__dashboard {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 30px;
           border: 1px solid var(--pink);
           border-radius: 999px;
-          padding: 6px 12px;
+          padding: 0 12px;
           background: var(--cream);
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
           color: var(--pink);
@@ -348,32 +352,45 @@ export default function Chat({ onOpenDashboard, settings }) {
           cursor: pointer;
         }
 
+        .brain-chat__dashboard:hover {
+          border-color: var(--ink);
+          background: #302798;
+          color: #fff;
+          box-shadow: 4px 4px var(--ink);
+          transform: rotate(-2deg);
+        }
+
+        .brain-chat__dashboard:active { transform: translate(2px, 2px) rotate(0deg); box-shadow: 2px 2px var(--ink); }
+
         .brain-chat__mobile-sidebar-toggle { display: none; }
 
         .brain-chat__welcome {
-          position: absolute;
+          position: relative;
           z-index: 2;
-          inset: 0;
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 34px;
+          padding: 70px 30px 24px;
           pointer-events: none;
         }
 
         .brain-chat__brain {
-          position: absolute;
-          top: 150px;
-          left: 50%;
+          position: static;
           width: 91px;
           height: 81px;
           object-fit: cover;
-          transform: translateX(-50%);
+          transform: none;
         }
 
         .brain-chat__welcome h1 {
-          position: absolute;
-          top: 271px;
-          left: 50%;
+          position: static;
           width: min(802px, 100%);
           margin: 0;
-          transform: translateX(-50%);
+          transform: none;
           color: #000;
           font-size: 22px;
           font-weight: 500;
@@ -426,11 +443,12 @@ export default function Chat({ onOpenDashboard, settings }) {
         }
 
         .brain-chat__composer.is-welcome {
-          position: absolute;
-          bottom: 174px;
-          left: 0;
+          position: relative;
+          bottom: auto;
+          left: auto;
+          flex: 0 0 auto;
           padding-top: 0;
-          padding-bottom: 0;
+          padding-bottom: clamp(36px, 9vh, 88px);
           border-top-color: transparent;
           box-shadow: none;
         }
@@ -439,13 +457,30 @@ export default function Chat({ onOpenDashboard, settings }) {
           width: min(396px, calc(100% - 48px));
         }
 
-        .brain-chat__main.is-sidebar-collapsed .brain-chat__brain {
-          transform: translateX(-50%);
-        }
-
         .brain-chat__main.is-sidebar-collapsed .brain-chat__welcome h1 {
           width: min(450px, calc(100% - 60px));
         }
+
+        .brain-chat button:not(:disabled) {
+          transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out, opacity 300ms ease-in-out;
+        }
+
+        .brain-chat button:not(:disabled):active { scale: .97; }
+        .brain-chat__font-button:hover:not(.is-active) { background: rgba(255, 0, 143, .12); color: var(--pink); }
+        .brain-chat__font-button.is-active:hover { background: #302798; }
+        .brain-chat__sidebar-toggle:hover,
+        .brain-sidebar__collapse:hover,
+        .brain-sidebar__mobile-close:hover { background: #302798; transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
+        .brain-chat__sidebar-toggle:hover .brain-chat__arrow,
+        .brain-sidebar__collapse:hover .brain-sidebar__arrow,
+        .brain-sidebar__mobile-close:hover .brain-sidebar__arrow { border-color: #fff; }
+        .brain-sidebar__search:hover { background: #302798; transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
+        .brain-sidebar__search:hover .brain-sidebar__search-icon { border-color: #fff; }
+        .brain-sidebar__search:hover .brain-sidebar__search-icon::after { background: #fff; }
+        .brain-sidebar__new:hover { border-color: var(--ink); background: #302798; color: #fff; box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
+        .brain-sidebar__logout:hover { color: #302798; }
+        .brain-sidebar__item:hover { transform: translateX(3px); }
+        .brain-input__icon:hover:not(:disabled) { transform: scale(1.08) rotate(-3deg); filter: saturate(1.15); }
 
         @media (min-width: 1024px) {
           .brain-chat .brain-message-list { padding-top: 97px; }
@@ -496,23 +531,10 @@ export default function Chat({ onOpenDashboard, settings }) {
           }
           .brain-chat__error { bottom: 120px; }
           .brain-chat__welcome {
-            position: relative;
             flex: 1 1 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 34px;
             padding: 92px 30px 24px;
           }
-          .brain-chat__brain,
-          .brain-chat__welcome h1 {
-            position: static;
-            transform: none;
-          }
           .brain-chat__composer.is-welcome {
-            position: relative;
-            bottom: auto;
             flex: 0 0 185px;
             height: 185px;
             padding: 12px 30px 38px;

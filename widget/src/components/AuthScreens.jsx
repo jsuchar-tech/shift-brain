@@ -136,35 +136,30 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           color: var(--pink);
           font: 500 13px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           cursor: pointer;
+          transition: color 300ms ease-in-out, transform 300ms ease-in-out;
         }
+
+        .brain-auth__back:hover { color: #302798; transform: translateX(-3px); }
+        .brain-auth__back:active { transform: translateX(-1px) scale(.97); }
 
         .brain-auth__submit {
           position: relative;
           width: 103px;
           height: 47px;
           padding: 0;
-          border: 0;
-          background: transparent;
+          border: 2px solid var(--ink);
+          border-radius: 50px;
+          background: var(--pink);
+          box-shadow: 4px 4px var(--ink);
+          color: #fff;
+          transform: rotate(-3deg);
+          transition: background-color 300ms ease-in-out, transform 300ms ease-in-out, box-shadow 300ms ease-in-out;
           cursor: pointer;
         }
 
         .brain-auth__submit::before,
         .brain-auth__submit::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: 20px;
-          transform: rotate(-6deg) skewX(-2deg);
-        }
-
-        .brain-auth__submit::before {
-          background: var(--ink);
-          transform: translate(5px, 6px) rotate(-6deg) skewX(-2deg);
-        }
-
-        .brain-auth__submit::after {
-          background: var(--pink);
-          border: 2px solid var(--ink);
+          display: none;
         }
 
         .brain-auth__submit span {
@@ -173,10 +168,12 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           display: block;
           color: #fff;
           font: 700 14px/47px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          transform: rotate(-6deg) skewX(-2deg);
+          transform: none;
           white-space: nowrap;
         }
 
+        .brain-auth__submit:hover:not(:disabled) { background: #302798; transform: rotate(0deg); }
+        .brain-auth__submit:active:not(:disabled) { transform: translate(2px, 2px) rotate(0deg); box-shadow: 2px 2px var(--ink); }
         .brain-auth__submit:disabled { opacity: .6; cursor: default; }
         .brain-auth__captcha { margin-top: -10px; }
         .brain-auth--signup .brain-auth__actions { margin-top: 25px; }
@@ -300,7 +297,7 @@ export function CreateAccountScreen({ onBack, brainIcon }) {
         {error && <p className="brain-auth__error" role="alert">{error}</p>}
 
         <div className="brain-auth__actions">
-          {stage === 'verify' && <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>}
+          <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
           <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
             <span>{isSubmitting ? 'WAIT' : stage === 'verify' ? 'VERIFY' : 'SEND'}</span>
           </button>
@@ -396,7 +393,7 @@ export function ForgotPasswordScreen({ onBack, brainIcon }) {
         {error && <p className="brain-auth__error" role="alert">{error}</p>}
 
         <div className="brain-auth__actions">
-          {stage === 'reset' && <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>}
+          <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
           <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
             <span>{isSubmitting ? 'WAIT' : stage === 'request' ? 'SEND' : 'RESET'}</span>
           </button>

@@ -16,6 +16,7 @@ function mountWidget() {
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     :host { display: block; width: 100%; height: 100%; min-height: 0; overflow: visible; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     button, input, textarea, select { font-family: inherit; }
+    button, a, input, textarea, select { transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out, opacity 300ms ease-in-out; }
     a { text-decoration: none; }
   `
   shadow.appendChild(style)
