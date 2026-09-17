@@ -21,6 +21,7 @@ router.post('/sync', async (req, res) => {
     if (!payload) return res.status(401).json({ error: 'Invalid token' })
 
     const clerkUserId = payload.sub
+    const registrationPending = req.body?.registration_pending === true
 
     const { data: existing } = await supabase
       .from('users')
@@ -29,6 +30,16 @@ router.post('/sync', async (req, res) => {
       .maybeSingle()
 
     if (existing) {
+      if (registrationPending) {
+        const { data: pendingUser, error: pendingError } = await supabase
+          .from('users')
+          .update({ is_active: false })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        if (pendingError) throw pendingError
+        return res.json({ message: 'User awaiting approval', user: pendingUser })
+      }
       // Participant records are curated locally. Do not overwrite approved
       // names, offices, roles or other profile fields with Clerk metadata.
       return res.json({ message: 'User synced', user: existing })
@@ -36,6 +47,7 @@ router.post('/sync', async (req, res) => {
 
     const clerkUser = await clerkClient.users.getUser(clerkUserId)
     const profile = clerkProfile(clerkUser, req.body)
+    const requiresApproval = registrationPending || clerkUser?.unsafeMetadata?.approval_required === true
 
     // Recover accounts created in Clerk before local synchronization finished.
     // A verified matching email is safe to reconnect, while preserving all
@@ -51,7 +63,7 @@ router.post('/sync', async (req, res) => {
       if (emailMatch) {
         const { data: linkedUser, error: linkError } = await supabase
           .from('users')
-          .update({ clerk_user_id: clerkUserId })
+          .update({ clerk_user_id: clerkUserId, ...(requiresApproval ? { is_active: false } : {}) })
           .eq('id', emailMatch.id)
           .select()
           .single()

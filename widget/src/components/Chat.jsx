@@ -535,6 +535,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
             padding-bottom: 32px;
           }
           .brain-chat__composer { padding: 12px 30px 38px; }
+          .brain-sidebar__search:hover { box-shadow: none; }
           .brain-chat__dashboard { padding-right: 10px; padding-left: 10px; font-size: 10px; }
           .brain-chat__welcome h1 {
             width: 100%;

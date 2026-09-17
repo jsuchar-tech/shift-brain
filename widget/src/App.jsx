@@ -75,13 +75,18 @@ function AppContent({ settings, onSettingsChange }) {
       setAccessError('')
       const metadata = user.publicMetadata || {}
       const signupMetadata = user.unsafeMetadata || {}
+      const registrationPending = window.sessionStorage.getItem('shift_brain_registration_pending') === '1'
       const data = await syncUser(getToken, {
         full_name: user.fullName || user.firstName,
         work_email: user.primaryEmailAddress?.emailAddress,
         country_office: metadata.country_office || signupMetadata.country_office || 'Unknown',
-        shifter_year: metadata.shifter_year || signupMetadata.shifter_year || 1
+        shifter_year: metadata.shifter_year || signupMetadata.shifter_year || 1,
+        registration_pending: registrationPending
       })
       setLocalUser(data.user)
+      if (!data.user?.is_active) {
+        window.sessionStorage.removeItem('shift_brain_registration_pending')
+      }
       setAccessState(data.user?.is_active ? 'approved' : 'pending')
     } catch (error) {
       console.error('Failed to check account approval:', error)

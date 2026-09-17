@@ -268,13 +268,14 @@ export function CreateAccountScreen({ onBack, brainIcon, theme }) {
         password,
         firstName: names.shift() || undefined,
         lastName: names.join(' ') || undefined,
-        unsafeMetadata: { country_office: country }
+        unsafeMetadata: { country_office: country, approval_required: true }
       })
 
       // Clerk can complete signups immediately when email verification is
       // disabled. Preparing a verification attempt after that state produces
       // "No sign up attempt was found", even though the user was created.
       if (result.status === 'complete') {
+        window.sessionStorage.setItem('shift_brain_registration_pending', '1')
         await setActive({ session: result.createdSessionId })
         return
       }
@@ -297,6 +298,7 @@ export function CreateAccountScreen({ onBack, brainIcon, theme }) {
     try {
       const result = await signUp.attemptEmailAddressVerification({ code })
       if (result.status === 'complete') {
+        window.sessionStorage.setItem('shift_brain_registration_pending', '1')
         await setActive({ session: result.createdSessionId })
         return
       }

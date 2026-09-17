@@ -39,7 +39,7 @@ router.get('/users', async (req, res) => {
         if (emailMatch) {
           const { data: linked, error: linkError } = await supabase
             .from('users')
-            .update({ clerk_user_id: clerkUser.id })
+            .update({ clerk_user_id: clerkUser.id, is_active: false })
             .eq('id', emailMatch.id)
             .select()
             .single()
