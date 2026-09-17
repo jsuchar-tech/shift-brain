@@ -31,6 +31,7 @@ export default function ConversationSidebar({
   onLogout
 }) {
   const [search, setSearch] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -48,7 +49,13 @@ export default function ConversationSidebar({
 
   function startNewChat() {
     setSearch('')
+    setSearchOpen(false)
     onNew()
+  }
+
+  function closeSidebar() {
+    setSearchOpen(false)
+    onClose?.()
   }
 
   return (
@@ -56,7 +63,7 @@ export default function ConversationSidebar({
       <button
         className="brain-sidebar__mobile-close"
         type="button"
-        onClick={onClose}
+        onClick={closeSidebar}
         aria-label="Close chat history"
       >
         <span className="brain-sidebar__arrow" aria-hidden="true" />
@@ -64,17 +71,27 @@ export default function ConversationSidebar({
       <div className="brain-sidebar__content">
         <div className="brain-sidebar__title">Your chat history</div>
         <div className="brain-sidebar__tools">
-          <label className="brain-sidebar__search">
+          <button
+            className={`brain-sidebar__search ${searchOpen ? 'is-open' : ''}`}
+            type="button"
+            onClick={() => setSearchOpen(value => !value)}
+            aria-label={searchOpen ? 'Close conversation search' : 'Search past chats'}
+            aria-expanded={searchOpen}
+          >
             <span className="brain-sidebar__search-icon" aria-hidden="true" />
-            <span className="brain-sidebar__search-label">Search past chats</span>
+          </button>
+
+          {searchOpen && (
             <input
+              className="brain-sidebar__search-input"
               type="search"
               value={search}
               onChange={event => setSearch(event.target.value)}
               placeholder="Search past chats"
               autoComplete="off"
+              autoFocus
             />
-          </label>
+          )}
 
           <button className="brain-sidebar__new" type="button" onClick={startNewChat}>
             <span aria-hidden="true">+</span>
@@ -92,7 +109,10 @@ export default function ConversationSidebar({
           {filteredConversations.map(conv => (
             <button
               key={conv.id}
-              onClick={() => onSelect(conv.id)}
+              onClick={() => {
+                setSearchOpen(false)
+                onSelect(conv.id)
+              }}
               className={`brain-sidebar__item ${currentId === conv.id ? 'is-active' : ''}`}
               title={conv.title || 'Untitled conversation'}
             >
@@ -174,46 +194,42 @@ export default function ConversationSidebar({
         }
 
         .brain-sidebar__search {
-          position: relative;
           display: flex;
           align-items: center;
+          justify-content: center;
+          width: 40px;
           height: 38px;
-          border: 1px solid #deddd5;
+          padding: 0;
+          border: 0;
+          border-radius: 999px;
+          background: #ffc2df;
+          cursor: pointer;
+        }
+
+        .brain-sidebar__search-input {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 54px;
+          width: 100%;
+          height: 42px;
+          padding: 0 16px;
+          border: 1px solid var(--pink, #ff008f);
+          outline: 0;
           border-radius: 999px;
           background: #fff;
-          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.035);
-        }
-
-        .brain-sidebar__search input {
-          width: 100%;
-          height: 100%;
-          min-width: 0;
-          padding: 0 14px 0 38px;
-          border: 0;
-          outline: 0;
-          border-radius: inherit;
-          background: transparent;
           color: #0b0b2d;
-          font: 12px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font: 13px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
         }
 
-        .brain-sidebar__search input::placeholder { color: #b7b7b7; opacity: 1; }
-        .brain-sidebar__search input::-webkit-search-cancel-button { cursor: pointer; }
-        .brain-sidebar__search-label {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          overflow: hidden;
-          clip: rect(0,0,0,0);
-          white-space: nowrap;
-        }
+        .brain-sidebar__search-input::placeholder { color: #b7b7b7; opacity: 1; }
+        .brain-sidebar__search-input::-webkit-search-cancel-button { cursor: pointer; }
 
         .brain-sidebar__search-icon {
-          position: absolute;
-          left: 15px;
-          z-index: 1;
-          width: 11px;
-          height: 11px;
+          position: relative;
+          width: 14px;
+          height: 14px;
           border: 1.5px solid var(--pink, #ff008f);
           border-radius: 50%;
           pointer-events: none;
@@ -222,9 +238,9 @@ export default function ConversationSidebar({
         .brain-sidebar__search-icon::after {
           content: '';
           position: absolute;
-          right: -4px;
-          bottom: -3px;
-          width: 5px;
+          right: -5px;
+          bottom: -4px;
+          width: 6px;
           height: 1.5px;
           border-radius: 2px;
           background: var(--pink, #ff008f);
@@ -434,29 +450,69 @@ export default function ConversationSidebar({
         }
 
         @media (max-width: 767px) {
-          .brain-sidebar__content { padding-top: 14px; }
-          .brain-sidebar__title { margin-left: 30px; padding-right: 58px; line-height: 34px; }
+          .brain-sidebar__content { padding-top: 84px; }
+          .brain-sidebar__title { display: none; }
+          .brain-sidebar__mobile-close { top: 19px; right: auto; left: 30px; }
+          .brain-sidebar.is-collapsed .brain-sidebar__mobile-close .brain-sidebar__arrow {
+            transform: rotate(45deg);
+            margin-left: 4px;
+          }
           .brain-sidebar__tools {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 12px;
-            padding: 18px 30px 9px;
+            position: absolute;
+            z-index: 35;
+            right: 30px;
+            bottom: 50px;
+            left: 30px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 17px;
+            padding: 0;
           }
-          .brain-sidebar__search { min-width: 0; height: 42px; }
+          .brain-sidebar__search { flex: 0 0 40px; width: 40px; height: 40px; }
           .brain-sidebar__new {
-            width: auto;
-            min-width: 142px;
-            min-height: 42px;
-            padding: 0 15px;
+            flex: 0 0 134px;
+            width: 134px;
+            min-width: 0;
+            min-height: 38px;
+            padding: 0 14px;
+            border-color: var(--pink, #ff008f);
+            background: var(--cream, #fdfbef);
+            box-shadow: none;
+            color: var(--pink, #ff008f);
+            font-size: 12px;
           }
-          .brain-sidebar__list { margin-top: 13px; padding-right: 30px; padding-left: 30px; }
-          .brain-sidebar__item { min-height: 46px; }
-          .brain-sidebar__item time { display: block; }
-        }
-
-        @media (max-width: 440px) {
-          .brain-sidebar__tools { grid-template-columns: 1fr; }
-          .brain-sidebar__new { width: 100%; }
+          .brain-sidebar__new span { display: none; }
+          .brain-sidebar__new:active { transform: none; box-shadow: none; background: rgba(255,0,143,.06); }
+          .brain-sidebar__list {
+            margin-top: 0;
+            padding: 0 30px 150px;
+            scrollbar-width: none;
+            mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 120px), transparent 100%);
+          }
+          .brain-sidebar__list::-webkit-scrollbar { display: none; }
+          .brain-sidebar__item {
+            display: block;
+            min-height: 78px;
+            margin: 0;
+            padding: 18px 0 11px;
+            border-radius: 0;
+            font-size: 14px;
+            line-height: 20px;
+          }
+          .brain-sidebar__item::before { display: none; }
+          .brain-sidebar__item:hover,
+          .brain-sidebar__item.is-active { background: transparent; box-shadow: none; color: #0b0b2d; }
+          .brain-sidebar__item-title { display: block; width: 100%; }
+          .brain-sidebar__item time {
+            display: block;
+            margin-top: 8px;
+            color: #c53b8d;
+            font-size: 10px;
+            line-height: 14px;
+          }
+          .brain-sidebar__logout { display: none; }
         }
       `}</style>
     </aside>
