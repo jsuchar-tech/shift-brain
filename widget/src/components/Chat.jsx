@@ -265,8 +265,8 @@ export default function Chat({ onOpenDashboard, settings }) {
         .brain-chat__arrow {
           width: 9px;
           height: 9px;
-          border-left: 1.5px solid var(--pink);
-          border-bottom: 1.5px solid var(--pink);
+          border-left: 2px solid var(--pink);
+          border-bottom: 2px solid var(--pink);
           transform: rotate(45deg);
           margin-left: 4px;
         }
@@ -312,8 +312,13 @@ export default function Chat({ onOpenDashboard, settings }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex: 1;
-          color: var(--muted);
+          flex: 0 0 29px;
+          width: 29px;
+          height: 29px;
+          margin: -2px 0;
+          border-radius: 50%;
+          background: var(--pink);
+          color: #fff;
           font: 600 11px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           pointer-events: none;
         }
@@ -407,9 +412,9 @@ export default function Chat({ onOpenDashboard, settings }) {
           display: flex;
           justify-content: center;
           width: 100%;
-          padding: 16px 24px 18px;
+          padding: 16px 24px 40px;
           background: var(--cream);
-          border-top: 1px solid rgba(222, 221, 213, .55);
+          border-top: 0;
         }
 
         .brain-chat__composer.is-welcome {
@@ -424,13 +429,13 @@ export default function Chat({ onOpenDashboard, settings }) {
           left: 50%;
         }
 
-        @media (max-width: 767px) {
+        @media (max-width: 1023px) {
           .brain-chat__main { border-top: 0; min-height: 0; }
           .brain-chat .brain-message-list {
-            padding-top: 52px;
+            padding-top: 92px;
             padding-bottom: 18px;
           }
-          .brain-chat__composer { padding: 12px 30px 20px; }
+          .brain-chat__composer { padding: 12px 30px 40px; }
           .brain-chat__sidebar-backdrop {
             position: absolute;
             z-index: 9;
@@ -441,8 +446,8 @@ export default function Chat({ onOpenDashboard, settings }) {
           .brain-chat__sidebar-backdrop.is-open { display: block; }
           .brain-chat__top-controls {
             top: 14px;
-            left: 30px;
-            right: 98px;
+            left: 50px;
+            right: 55px;
           }
           .brain-chat__mobile-sidebar-toggle {
             position: absolute;
@@ -460,6 +465,12 @@ export default function Chat({ onOpenDashboard, settings }) {
             font-weight: 500;
           }
           .brain-chat__error { bottom: 120px; }
+        }
+
+        @media (max-width: 767px) {
+          .brain-chat__composer { padding: 12px 30px 20px; }
+          .brain-chat__top-controls { left: 30px; right: 30px; }
+          .brain-chat .brain-message-list { padding-top: 52px; }
         }
       `}</style>
     </div>

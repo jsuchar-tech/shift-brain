@@ -372,7 +372,7 @@ export default function ConversationSidebar({
           transform: rotate(180deg);
         }
 
-        @media (max-width: 767px) {
+        @media (max-width: 1023px) {
           .brain-sidebar {
             position: absolute;
             left: 0;

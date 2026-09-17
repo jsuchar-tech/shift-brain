@@ -23,21 +23,14 @@ export default function MessageList({ messages, isLoading, fontSize, scrollToBot
         ))}
 
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
-          <div style={{ padding: '0 20px 16px' }}>
-            <div style={{
-              display: 'inline-flex',
-              gap: '4px',
-              padding: '12px 16px',
-              background: 'white',
-              borderRadius: '18px 18px 18px 4px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
+          <div className="brain-message-list__loading" aria-label="Brain is responding">
+            <div>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: '#4a90d9',
+                  background: '#ff008f',
                   animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`
                 }} />
               ))}
@@ -61,14 +54,30 @@ export default function MessageList({ messages, isLoading, fontSize, scrollToBot
         }
 
         .brain-message-list__content {
+          width: min(802px, calc(100% - clamp(40px, 14.0625vw, 108px)));
           min-height: 100%;
+          margin: 0 auto;
           display: flex;
           flex-direction: column;
           justify-content: flex-start;
         }
 
+        .brain-message-list__loading { width: 100%; padding: 4px 0 20px; }
+        .brain-message-list__loading > div {
+          display: inline-flex;
+          gap: 5px;
+          padding: 8px 0;
+          background: transparent;
+        }
+
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: .45; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+
         @media (max-width: 767px) {
           .brain-message-list { padding: 12px 0 8px; }
+          .brain-message-list__content { width: calc(100% - 60px); }
         }
       `}</style>
     </div>

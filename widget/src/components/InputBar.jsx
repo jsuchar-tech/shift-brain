@@ -88,7 +88,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
         .brain-input {
           position: relative;
           z-index: 6;
-          width: 396px;
+          width: min(684px, calc(100% - 48px));
           max-width: 100%;
           height: 140px;
         }
@@ -186,6 +186,10 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
           .brain-input textarea { height: 42px; font-size: 14px; line-height: 28px; }
           .brain-input__footer { gap: 22px; padding: 7px 0; }
           .brain-input__tokens { width: 127px; font-size: 10px; }
+        }
+
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .brain-input { width: 450px; }
         }
       `}</style>
     </div>

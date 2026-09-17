@@ -6,7 +6,6 @@ function CopyButton({ content }) {
   const [copied, setCopied] = useState(false)
 
   function handleCopy() {
-    // Strip markdown to plain text
     const plain = content
       .replace(/#{1,6}\s/g, '')
       .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -18,29 +17,13 @@ function CopyButton({ content }) {
 
     navigator.clipboard.writeText(plain).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      window.setTimeout(() => setCopied(false), 2000)
     })
   }
 
   return (
-    <button
-      onClick={handleCopy}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        marginTop: '8px',
-        padding: '4px 10px',
-        border: '1px solid #e2e8f0',
-        borderRadius: '6px',
-        background: 'white',
-        color: copied ? '#2d7a3a' : '#888',
-        fontSize: '12px',
-        cursor: 'pointer',
-        transition: 'all 0.15s'
-      }}
-    >
-      {copied ? '✓ Copied' : '⎘ Copy'}
+    <button className="brain-message__copy" type="button" onClick={handleCopy}>
+      {copied ? 'COPIED' : 'COPY THIS TEXT'}
     </button>
   )
 }
@@ -49,65 +32,103 @@ export default function MessageBubble({ message, fontSize = 16 }) {
   const isUser = message.role === 'user'
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-      marginBottom: '16px',
-      padding: '0 20px'
-    }}>
-      <div style={{
-        maxWidth: '80%',
-        padding: '12px 16px',
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        background: isUser ? '#4a90d9' : 'white',
-        color: isUser ? 'white' : '#333',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        fontSize: `${fontSize}px`,
-        lineHeight: '1.6'
-      }}>
+    <article className={`brain-message ${isUser ? 'is-user' : 'is-assistant'}`}>
+      <div className="brain-message__body" style={{ '--message-font-size': `${fontSize}px` }}>
         {isUser ? (
-          <div>
+          <>
             <p>{message.content}</p>
-            {message.attachments && message.attachments.length > 0 && (
-              <div style={{ marginTop: '8px', fontSize: '12px', opacity: 0.8 }}>
-                📎 {message.attachments.map(a => a.file_name).join(', ')}
+            {message.attachments?.length > 0 && (
+              <div className="brain-message__attachments">
+                {message.attachments.map(attachment => attachment.file_name).join(', ')}
               </div>
             )}
-          </div>
+          </>
         ) : (
           <>
-            <ReactMarkdown
-              components={{
-                p: ({ children }) => <p style={{ marginBottom: '8px' }}>{children}</p>,
-                ul: ({ children }) => <ul style={{ paddingLeft: '20px', marginBottom: '8px' }}>{children}</ul>,
-                ol: ({ children }) => <ol style={{ paddingLeft: '20px', marginBottom: '8px' }}>{children}</ol>,
-                li: ({ children }) => <li style={{ marginBottom: '4px' }}>{children}</li>,
-                strong: ({ children }) => <strong style={{ fontWeight: '600' }}>{children}</strong>,
-                code: ({ children }) => <code style={{ background: '#f0f0f0', padding: '2px 4px', borderRadius: '3px', fontSize: '13px' }}>{children}</code>
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-            {message.streaming && (
-              <span style={{
-                display: 'inline-block',
-                width: '6px',
-                height: '14px',
-                background: '#4a90d9',
-                marginLeft: '2px',
-                animation: 'blink 1s infinite',
-                verticalAlign: 'middle'
-              }} />
-            )}
-            {!message.streaming && message.content && (
-              <CopyButton content={message.content} />
-            )}
-            {message.citations && message.citations.length > 0 && (
+            <div className="brain-message__markdown">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+              {message.streaming && <span className="brain-message__cursor" aria-hidden="true" />}
+            </div>
+
+            {!message.streaming && message.citations?.length > 0 && (
               <SourceCitations citations={message.citations} />
             )}
+
+            {!message.streaming && message.content && <CopyButton content={message.content} />}
           </>
         )}
       </div>
-    </div>
+
+      <style>{`
+        .brain-message { display: flex; width: 100%; }
+        .brain-message.is-user { justify-content: flex-end; margin-bottom: 31px; }
+        .brain-message.is-assistant { justify-content: flex-start; margin-bottom: 34px; }
+
+        .brain-message__body {
+          color: #000;
+          font-size: var(--message-font-size, 16px);
+          line-height: 1.72;
+        }
+
+        .brain-message.is-user .brain-message__body {
+          width: fit-content;
+          max-width: min(76%, 500px);
+          min-height: 44px;
+          padding: 9px 28px;
+          border-radius: 10px;
+          background: #ffd000;
+          line-height: 26px;
+        }
+
+        .brain-message.is-user p { margin: 0; }
+        .brain-message.is-assistant .brain-message__body { width: 100%; padding: 0; background: transparent; }
+        .brain-message__markdown > :first-child { margin-top: 0; }
+        .brain-message__markdown > :last-child { margin-bottom: 0; }
+        .brain-message__markdown p { margin: 0 0 24px; }
+        .brain-message__markdown ul,
+        .brain-message__markdown ol { margin: 0 0 24px; padding-left: 24px; }
+        .brain-message__markdown li { margin-bottom: 6px; }
+        .brain-message__markdown strong { font-weight: 600; }
+        .brain-message__markdown a { color: #ff008f; text-underline-offset: 3px; }
+        .brain-message__markdown code { padding: 2px 5px; border-radius: 4px; background: rgba(255,255,255,.8); font-size: .88em; }
+
+        .brain-message__attachments { margin-top: 5px; color: rgba(0,0,0,.6); font-size: 11px; line-height: 16px; }
+        .brain-message__attachments::before { content: '+ '; color: #ff008f; }
+
+        .brain-message__cursor {
+          display: inline-block;
+          width: 2px;
+          height: 1em;
+          margin-left: 3px;
+          background: #ff008f;
+          animation: brain-message-blink 1s steps(2, start) infinite;
+          vertical-align: -.12em;
+        }
+
+        .brain-message__copy {
+          display: block;
+          margin-top: 25px;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: #ff008f;
+          font: 700 10px/18px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          letter-spacing: .01em;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .brain-message__copy:hover { text-decoration: underline; text-underline-offset: 3px; }
+        @keyframes brain-message-blink { 50% { opacity: 0; } }
+
+        @media (max-width: 767px) {
+          .brain-message.is-user { margin-bottom: 26px; }
+          .brain-message.is-user .brain-message__body { max-width: 86%; padding: 8px 18px; }
+          .brain-message__markdown p,
+          .brain-message__markdown ul,
+          .brain-message__markdown ol { margin-bottom: 19px; }
+        }
+      `}</style>
+    </article>
   )
 }
