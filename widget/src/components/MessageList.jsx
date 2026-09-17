@@ -54,7 +54,7 @@ export default function MessageList({ messages, isLoading, fontSize, scrollToBot
         }
 
         .brain-message-list__content {
-          width: min(802px, calc(100% - clamp(40px, 14.0625vw, 108px)));
+          width: min(660px, calc(100% - 108px));
           min-height: 100%;
           margin: 0 auto;
           display: flex;

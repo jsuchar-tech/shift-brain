@@ -34,7 +34,6 @@ const DEFAULT_SETTINGS = {
 }
 
 const LOGIN_ASSETS = {
-  logo: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
   brain: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png'
 }
 
@@ -87,10 +86,6 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
 
   return (
     <div className="brain-login">
-      <header className="brain-login__header">
-        <img src={copy.logo_url || LOGIN_ASSETS.logo} alt="SHIFT" className="brain-login__logo" />
-      </header>
-
       <main className="brain-login__content">
         <img src={LOGIN_ASSETS.brain} alt="" className="brain-login__brain" />
         <h1>{copy.login_heading}</h1>
@@ -157,23 +152,6 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           background: var(--cream);
           color: #000;
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        .brain-login__header {
-          position: absolute;
-          top: 30px;
-          left: 30px;
-          right: 30px;
-          z-index: 2;
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
-
-        .brain-login__logo {
-          width: 48px;
-          height: 39px;
-          object-fit: cover;
         }
 
         .brain-login__content {
@@ -328,9 +306,24 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
         @media (min-width: 768px) {
-          .brain-login__content { max-width: 900px; margin: 0 auto; }
-          .brain-login__form { left: 50%; transform: translateX(-50%); }
-          .brain-login__intro { left: 50%; transform: translateX(-50%); }
+          .brain-login__content { min-height: 694px; }
+          .brain-login__brain { top: 28px; }
+          .brain-login h1 { top: 156px; font-size: 30px; line-height: 36px; }
+          .brain-login__intro {
+            top: 214px;
+            left: 50%;
+            width: 407px;
+            max-width: calc(100% - 60px);
+            transform: translateX(-50%);
+            font-size: 16px;
+            line-height: 31px;
+          }
+          .brain-login__form {
+            top: 424px;
+            left: 50%;
+            width: 407px;
+            transform: translateX(-50%);
+          }
         }
 
         @media (max-width: 380px) {

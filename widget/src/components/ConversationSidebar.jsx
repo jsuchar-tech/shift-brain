@@ -245,7 +245,7 @@ export default function ConversationSidebar({
         .brain-sidebar__collapse {
           position: absolute;
           top: 14px;
-          right: -17px;
+          right: 13px;
           z-index: 25;
           display: flex;
           align-items: center;
@@ -272,6 +272,11 @@ export default function ConversationSidebar({
         .brain-sidebar.is-collapsed .brain-sidebar__arrow {
           transform: rotate(225deg);
           margin-left: -4px;
+        }
+
+        .brain-sidebar.is-collapsed .brain-sidebar__collapse {
+          right: auto;
+          left: clamp(50px, calc(50px + (100vw - 768px) * .2765), 180.5px);
         }
 
         .brain-sidebar__list {
@@ -372,7 +377,7 @@ export default function ConversationSidebar({
           transform: rotate(180deg);
         }
 
-        @media (max-width: 1023px) {
+        @media (max-width: 767px) {
           .brain-sidebar {
             position: absolute;
             left: 0;
@@ -387,6 +392,8 @@ export default function ConversationSidebar({
           }
           .brain-sidebar.is-open { transform: translateX(0); }
           .brain-sidebar.is-collapsed { width: min(82vw, 300px); flex-basis: min(82vw, 300px); }
+          .brain-sidebar.is-collapsed .brain-sidebar__content,
+          .brain-sidebar.is-collapsed .brain-sidebar__logout { opacity: 1; pointer-events: auto; }
           .brain-sidebar__title { margin-left: 24px; }
           .brain-sidebar__tools { padding-right: 24px; padding-left: 24px; }
           .brain-sidebar__list { padding-right: 18px; padding-left: 18px; }

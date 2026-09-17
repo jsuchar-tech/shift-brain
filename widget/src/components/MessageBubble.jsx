@@ -50,11 +50,11 @@ export default function MessageBubble({ message, fontSize = 16 }) {
               {message.streaming && <span className="brain-message__cursor" aria-hidden="true" />}
             </div>
 
+            {!message.streaming && message.content && <CopyButton content={message.content} />}
+
             {!message.streaming && message.citations?.length > 0 && (
               <SourceCitations citations={message.citations} />
             )}
-
-            {!message.streaming && message.content && <CopyButton content={message.content} />}
           </>
         )}
       </div>

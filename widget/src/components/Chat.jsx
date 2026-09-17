@@ -16,6 +16,16 @@ const ASSETS = {
   sendIcon: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg'
 }
 
+const FONT_SIZE_PRESETS = [14, 16, 18]
+
+function nearestFontSizePreset(value) {
+  const size = Number(value)
+  if (!Number.isFinite(size)) return 16
+  return FONT_SIZE_PRESETS.reduce((nearest, preset) =>
+    Math.abs(preset - size) < Math.abs(nearest - size) ? preset : nearest
+  )
+}
+
 export default function Chat({ onOpenDashboard, settings }) {
   const { getToken, signOut } = useAuth()
   const { user } = useUser()
@@ -48,16 +58,17 @@ export default function Chat({ onOpenDashboard, settings }) {
     if (!user || synced) return
 
     const metadata = user.publicMetadata || {}
+    const signupMetadata = user.unsafeMetadata || {}
 
     syncUser(getToken, {
       full_name: user.fullName || user.firstName,
       work_email: user.primaryEmailAddress?.emailAddress,
-      country_office: metadata.country_office || 'Unknown',
+      country_office: metadata.country_office || signupMetadata.country_office || 'Unknown',
       shifter_year: metadata.shifter_year || 1
     })
       .then(data => {
         setSynced(true)
-        if (data?.user?.font_size) setFontSize(data.user.font_size)
+        if (data?.user?.font_size) setFontSize(nearestFontSizePreset(data.user.font_size))
       })
       .catch(console.error)
   }, [user, synced, getToken])
@@ -98,11 +109,7 @@ export default function Chat({ onOpenDashboard, settings }) {
     }
   }
 
-  async function handleFontSizeChange(delta) {
-    const minFontSize = 12
-    const maxFontSize = 24
-    const nextSize = Math.min(maxFontSize, Math.max(minFontSize, fontSize + delta))
-
+  async function handleFontSizeChange(nextSize) {
     if (nextSize === fontSize) return
 
     setFontSize(nextSize)
@@ -149,21 +156,27 @@ export default function Chat({ onOpenDashboard, settings }) {
           </button>
 
           <div className="brain-chat__controls">
-            <div className="brain-chat__font-control" aria-label="Text size">
+            <div className="brain-chat__font-control" role="group" aria-label="Text size">
               <button
                 type="button"
-                className="brain-chat__font-button"
-                onClick={() => handleFontSizeChange(-1)}
-                disabled={fontSize <= 12}
-                aria-label="Decrease text size"
+                className={`brain-chat__font-button ${fontSize === 14 ? 'is-active' : ''}`}
+                onClick={() => handleFontSizeChange(14)}
+                aria-label="Small text"
+                aria-pressed={fontSize === 14}
               >A−</button>
-              <span className="brain-chat__font-label" aria-hidden="true">A</span>
               <button
                 type="button"
-                className="brain-chat__font-button"
-                onClick={() => handleFontSizeChange(1)}
-                disabled={fontSize >= 24}
-                aria-label="Increase text size"
+                className={`brain-chat__font-button ${fontSize === 16 ? 'is-active' : ''}`}
+                onClick={() => handleFontSizeChange(16)}
+                aria-label="Medium text"
+                aria-pressed={fontSize === 16}
+              >A</button>
+              <button
+                type="button"
+                className={`brain-chat__font-button ${fontSize === 18 ? 'is-active' : ''}`}
+                onClick={() => handleFontSizeChange(18)}
+                aria-label="Large text"
+                aria-pressed={fontSize === 18}
               >A+</button>
             </div>
             {onOpenDashboard && (
@@ -302,32 +315,26 @@ export default function Chat({ onOpenDashboard, settings }) {
           padding: 0;
           border: 0;
           border-radius: 50%;
-          background: #fff;
+          background: transparent;
           color: var(--muted);
           font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           cursor: pointer;
         }
 
-        .brain-chat__font-label {
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .brain-chat__font-button:nth-child(2) {
           flex: 0 0 29px;
           width: 29px;
           height: 29px;
           margin: -2px 0;
-          border-radius: 50%;
-          background: var(--pink);
-          color: #fff;
-          font: 600 11px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          pointer-events: none;
+          font-size: 11px;
         }
 
-        .brain-chat__font-button:hover:not(:disabled) { color: var(--pink); }
-        .brain-chat__font-button:disabled {
-          opacity: .35;
-          cursor: default;
+        .brain-chat__font-button.is-active {
+          background: var(--pink);
+          color: #fff;
         }
+
+        .brain-chat__font-button:hover:not(.is-active) { color: var(--pink); }
 
         .brain-chat__dashboard {
           border: 1px solid var(--pink);
@@ -343,30 +350,29 @@ export default function Chat({ onOpenDashboard, settings }) {
         .brain-chat__mobile-sidebar-toggle { display: none; }
 
         .brain-chat__welcome {
-          position: relative;
-          flex: 1 1 auto;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 34px;
-          padding: 48px 30px 24px;
+          position: absolute;
+          z-index: 2;
+          inset: 0;
           pointer-events: none;
         }
 
         .brain-chat__brain {
-          position: static;
+          position: absolute;
+          top: 150px;
+          left: 50%;
           width: 91px;
           height: 81px;
           object-fit: cover;
-          transform: none;
+          transform: translateX(-50%);
         }
 
         .brain-chat__welcome h1 {
-          position: static;
+          position: absolute;
+          top: 271px;
+          left: 50%;
           width: min(802px, 100%);
           margin: 0;
+          transform: translateX(-50%);
           color: #000;
           font-size: 22px;
           font-weight: 500;
@@ -418,24 +424,41 @@ export default function Chat({ onOpenDashboard, settings }) {
         }
 
         .brain-chat__composer.is-welcome {
+          position: absolute;
+          bottom: 174px;
+          left: 0;
+          padding-top: 0;
+          padding-bottom: 0;
           border-top-color: transparent;
         }
 
+        .brain-chat__main:not(.is-sidebar-collapsed) .brain-chat__composer.is-welcome .brain-input {
+          width: min(396px, calc(100% - 48px));
+        }
+
         .brain-chat__main.is-sidebar-collapsed .brain-chat__brain {
-          transform: translateX(0);
+          transform: translateX(-50%);
         }
 
         .brain-chat__main.is-sidebar-collapsed .brain-chat__welcome h1 {
-          left: 50%;
+          width: min(450px, calc(100% - 60px));
         }
 
-        @media (max-width: 1023px) {
+        @media (min-width: 768px) {
+          .brain-chat .brain-message-list { padding-top: 97px; }
+          .brain-chat__main.is-sidebar-collapsed .brain-chat__top-controls {
+            left: clamp(50px, calc(50px + (100vw - 768px) * .2765), 180.5px);
+            right: clamp(50px, calc(50px + (100vw - 768px) * .2765), 180.5px);
+          }
+        }
+
+        @media (max-width: 767px) {
           .brain-chat__main { border-top: 0; min-height: 0; }
           .brain-chat .brain-message-list {
-            padding-top: 92px;
+            padding-top: 52px;
             padding-bottom: 18px;
           }
-          .brain-chat__composer { padding: 12px 30px 40px; }
+          .brain-chat__composer { padding: 12px 30px 20px; }
           .brain-chat__sidebar-backdrop {
             position: absolute;
             z-index: 9;
@@ -446,8 +469,8 @@ export default function Chat({ onOpenDashboard, settings }) {
           .brain-chat__sidebar-backdrop.is-open { display: block; }
           .brain-chat__top-controls {
             top: 14px;
-            left: 50px;
-            right: 55px;
+            left: 30px;
+            right: 30px;
           }
           .brain-chat__mobile-sidebar-toggle {
             position: absolute;
@@ -465,12 +488,26 @@ export default function Chat({ onOpenDashboard, settings }) {
             font-weight: 500;
           }
           .brain-chat__error { bottom: 120px; }
-        }
-
-        @media (max-width: 767px) {
-          .brain-chat__composer { padding: 12px 30px 20px; }
-          .brain-chat__top-controls { left: 30px; right: 30px; }
-          .brain-chat .brain-message-list { padding-top: 52px; }
+          .brain-chat__welcome {
+            position: relative;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 34px;
+            padding: 48px 30px 24px;
+          }
+          .brain-chat__brain,
+          .brain-chat__welcome h1 {
+            position: static;
+            transform: none;
+          }
+          .brain-chat__composer.is-welcome {
+            position: relative;
+            bottom: auto;
+            padding: 12px 30px 20px;
+          }
         }
       `}</style>
     </div>

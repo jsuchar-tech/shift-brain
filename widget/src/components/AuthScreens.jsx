@@ -9,7 +9,7 @@ function clerkError(error, fallback) {
     || fallback
 }
 
-function AuthLayout({ title, subtitle, children, modifier = '' }) {
+function AuthLayout({ title, subtitle, children, modifier = '', help = null }) {
   return (
     <div className={`brain-auth ${modifier}`}>
       <main className="brain-auth__content">
@@ -17,6 +17,7 @@ function AuthLayout({ title, subtitle, children, modifier = '' }) {
         <h1>{title}</h1>
         {subtitle && <p className="brain-auth__subtitle">{subtitle}</p>}
         {children}
+        {help}
       </main>
 
       <style>{`
@@ -119,6 +120,7 @@ function AuthLayout({ title, subtitle, children, modifier = '' }) {
         .brain-auth__notice { color: #555; }
 
         .brain-auth__actions {
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -127,6 +129,8 @@ function AuthLayout({ title, subtitle, children, modifier = '' }) {
         }
 
         .brain-auth__back {
+          position: absolute;
+          left: 0;
           padding: 0;
           border: 0;
           background: transparent;
@@ -177,7 +181,32 @@ function AuthLayout({ title, subtitle, children, modifier = '' }) {
         .brain-auth__submit:disabled { opacity: .6; cursor: default; }
         .brain-auth__captcha { margin-top: -10px; }
         .brain-auth--signup .brain-auth__actions { margin-top: 25px; }
+        .brain-auth--forgot .brain-auth__actions { margin-top: 13px; }
+        .brain-auth__help {
+          position: absolute;
+          top: 650px;
+          left: 50%;
+          width: min(660px, calc(100% - 60px));
+          margin: 0;
+          transform: translateX(-50%);
+          color: var(--ink);
+          font-size: 16px;
+          line-height: 31px;
+          text-align: center;
+        }
+        .brain-auth__help a { color: var(--pink); text-decoration: none; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+        @media (min-width: 768px) {
+          .brain-auth__content { min-height: 694px; }
+          .brain-auth__brain { top: 28px; }
+          .brain-auth h1 { top: 156px; font-size: 30px; line-height: 36px; }
+          .brain-auth__subtitle { top: 210px; }
+          .brain-auth__field input { font-size: 18px; }
+          .brain-auth--signup .brain-auth__form { top: 262px; }
+          .brain-auth--forgot .brain-auth__form { top: 337px; }
+          .brain-auth__help { top: 555px; }
+        }
 
         @media (max-width: 767px) {
           .brain-auth__content { min-height: 783px; }
@@ -194,9 +223,9 @@ export function CreateAccountScreen({ onBack }) {
   const { isLoaded, signUp, setActive } = useSignUp()
   const [stage, setStage] = useState('details')
   const [fullName, setFullName] = useState('')
+  const [country, setCountry] = useState('')
   const [emailAddress, setEmailAddress] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [code, setCode] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -204,11 +233,6 @@ export function CreateAccountScreen({ onBack }) {
   async function createAccount(event) {
     event.preventDefault()
     if (!isLoaded || isSubmitting) return
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
-    }
-
     setError('')
     setIsSubmitting(true)
     try {
@@ -217,7 +241,8 @@ export function CreateAccountScreen({ onBack }) {
         emailAddress,
         password,
         firstName: names.shift() || undefined,
-        lastName: names.join(' ') || undefined
+        lastName: names.join(' ') || undefined,
+        unsafeMetadata: { country_office: country }
       })
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setStage('verify')
@@ -258,9 +283,9 @@ export function CreateAccountScreen({ onBack }) {
         {stage === 'details' ? (
           <>
             <label className="brain-auth__field"><span className="sr-only">Name</span><input value={fullName} onChange={event => setFullName(event.target.value)} placeholder="Name" autoComplete="name" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">Country</span><input value={country} onChange={event => setCountry(event.target.value)} placeholder="Country" autoComplete="country-name" required /></label>
             <label className="brain-auth__field"><span className="sr-only">Email</span><input type="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Email" autoComplete="email" required /></label>
             <label className="brain-auth__field"><span className="sr-only">Password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Password" autoComplete="new-password" required /></label>
-            <label className="brain-auth__field"><span className="sr-only">Confirm password</span><input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Confirm password" autoComplete="new-password" required /></label>
             <div id="clerk-captcha" className="brain-auth__captcha" />
           </>
         ) : (
@@ -272,7 +297,7 @@ export function CreateAccountScreen({ onBack }) {
         <div className="brain-auth__actions">
           <button className="brain-auth__back" type="button" onClick={onBack}>Back to log in</button>
           <button className="brain-auth__submit" type="submit" disabled={isSubmitting}>
-            <span>{isSubmitting ? 'WAIT' : stage === 'verify' ? 'VERIFY' : 'CREATE'}</span>
+            <span>{isSubmitting ? 'WAIT' : stage === 'verify' ? 'VERIFY' : 'SEND'}</span>
           </button>
         </div>
       </form>
@@ -341,13 +366,19 @@ export function ForgotPasswordScreen({ onBack }) {
     <AuthLayout
       title={stage === 'request' ? 'Forgot your password?' : 'Create a new password'}
       subtitle={stage === 'request'
-        ? 'Enter your email and we’ll send you a password reset code.'
+        ? ''
         : `Enter the code sent to ${emailAddress} and choose a new password.`}
       modifier="brain-auth--forgot"
+      help={stage === 'request' ? (
+        <p className="brain-auth__help">
+          If you are still having problems, just send us an email and we will sort it out for you!{' '}
+          <a href="mailto:hello@shiftnow.org">hello@shiftnow.org</a>
+        </p>
+      ) : null}
     >
       <form className="brain-auth__form" onSubmit={stage === 'request' ? sendResetCode : resetPassword}>
         {stage === 'request' ? (
-          <label className="brain-auth__field"><span className="sr-only">Email</span><input type="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Email" autoComplete="email" required /></label>
+          <label className="brain-auth__field"><span className="sr-only">Name or email</span><input type="text" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Name" autoComplete="username" required /></label>
         ) : (
           <>
             <label className="brain-auth__field"><span className="sr-only">Reset code</span><input value={code} onChange={event => setCode(event.target.value)} placeholder="Reset code" inputMode="numeric" autoComplete="one-time-code" required /></label>
