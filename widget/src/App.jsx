@@ -3,6 +3,7 @@ import {
   ClerkProvider,
   SignedIn,
   SignedOut,
+  useAuth,
   useSignIn,
   useUser
 } from '@clerk/clerk-react'
@@ -10,11 +11,26 @@ import Chat from './components/Chat'
 import Dashboard from './components/Dashboard'
 import ErrorBoundary from './components/errorBoundary'
 import { CreateAccountScreen, ForgotPasswordScreen } from './components/AuthScreens'
-import { API_URL } from './lib/api'
+import { API_URL, syncUser } from './lib/api'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 const DEFAULT_SETTINGS = {
   brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
+  plus_base_icon_url: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
+  plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
+  send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
+  send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
+  color_cream: '#fdfbef',
+  color_ink: '#0b0b2d',
+  color_pink: '#ff008f',
+  color_purple: '#302798',
+  color_muted: '#b7b7b7',
+  color_yellow: '#ffd000',
+  color_white: '#ffffff',
+  color_line: '#deddd5',
+  color_soft_pink: '#ffc2df',
+  color_success: '#2d7a3a',
+  color_danger: '#c53030',
   login_heading: 'Hello there!',
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
@@ -23,6 +39,8 @@ const DEFAULT_SETTINGS = {
   login_forgot_password: 'Forgot password?',
   login_create_account: 'Create an account',
   login_button: 'LOG IN',
+  signup_pending_heading: 'Your account is awaiting approval',
+  signup_pending_message: 'A curator needs to approve your signup before you can access SHIFT Brain. You can leave this page and return later.',
   dashboard_title: 'Curator Dashboard',
   dashboard_back_to_chat: '← Back to chat',
   dashboard_participants: 'Participants',
@@ -38,15 +56,79 @@ const LOGIN_ASSETS = {
 }
 
 function AppContent({ settings, onSettingsChange }) {
+  const { getToken, signOut } = useAuth()
   const { user } = useUser()
   const [view, setView] = useState('chat')
-  const isAdmin = user?.publicMetadata?.role === 'admin'
+  const [localUser, setLocalUser] = useState(null)
+  const [accessState, setAccessState] = useState('checking')
+
+  async function refreshAccess() {
+    if (!user) return
+    try {
+      const metadata = user.publicMetadata || {}
+      const signupMetadata = user.unsafeMetadata || {}
+      const data = await syncUser(getToken, {
+        full_name: user.fullName || user.firstName,
+        work_email: user.primaryEmailAddress?.emailAddress,
+        country_office: metadata.country_office || signupMetadata.country_office || 'Unknown',
+        shifter_year: metadata.shifter_year || signupMetadata.shifter_year || 1
+      })
+      setLocalUser(data.user)
+      setAccessState(data.user?.is_active ? 'approved' : 'pending')
+    } catch (error) {
+      console.error('Failed to check account approval:', error)
+      setAccessState('error')
+    }
+  }
+
+  useEffect(() => {
+    if (!user) return undefined
+    refreshAccess()
+    const timer = window.setInterval(refreshAccess, 15000)
+    return () => window.clearInterval(timer)
+  }, [user, getToken])
+
+  const isAdmin = localUser?.role === 'admin' || user?.publicMetadata?.role === 'admin'
+
+  if (accessState !== 'approved') {
+    const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
+    return (
+      <div
+        className="brain-approval"
+        style={{
+          '--cream': copy.color_cream,
+          '--ink': copy.color_ink,
+          '--pink': copy.color_pink,
+          '--purple': copy.color_purple
+        }}
+      >
+        <img src={copy.brain_icon_url || LOGIN_ASSETS.brain} alt="" />
+        {accessState === 'checking' && <><h1>Checking your account…</h1><p>Please wait a moment.</p></>}
+        {accessState === 'pending' && <><h1>{copy.signup_pending_heading}</h1><p>{copy.signup_pending_message}</p></>}
+        {accessState === 'error' && <><h1>We couldn’t check your account</h1><p>Please try again or return to the login screen.</p></>}
+        <div className="brain-approval__actions">
+          {accessState !== 'checking' && <button type="button" onClick={refreshAccess}>Check again</button>}
+          <button type="button" onClick={() => signOut().then(() => window.location.reload())}>Back to login</button>
+        </div>
+        <style>{`
+          .brain-approval { min-height: 694px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 60px 30px; background: var(--cream); color: var(--ink); text-align: center; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+          .brain-approval img { width: 91px; height: 81px; object-fit: contain; }
+          .brain-approval h1 { margin: 16px 0 0; font-size: 30px; line-height: 38px; font-weight: 500; }
+          .brain-approval p { width: min(520px, 100%); margin: 0; font-size: 15px; line-height: 27px; }
+          .brain-approval__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 12px; }
+          .brain-approval button { min-height: 42px; padding: 0 18px; border: 2px solid var(--ink); border-radius: 50px; background: var(--pink); box-shadow: 4px 4px var(--ink); color: #fff; font-weight: 700; cursor: pointer; transform: rotate(-2deg); }
+          .brain-approval button:hover { background: var(--purple); transform: rotate(0); }
+          .brain-approval button:active { box-shadow: 2px 2px var(--ink); transform: translate(2px, 2px); }
+        `}</style>
+      </div>
+    )
+  }
 
   return (
     <ErrorBoundary>
       {view === 'dashboard' && isAdmin
         ? <Dashboard onBack={() => setView('chat')} settings={settings} onSettingsChange={onSettingsChange} />
-        : <Chat onOpenDashboard={isAdmin ? () => setView('dashboard') : null} settings={settings} />}
+        : <Chat onOpenDashboard={isAdmin ? () => setView('dashboard') : null} settings={settings} currentUser={localUser} />}
     </ErrorBoundary>
   )
 }
@@ -85,7 +167,16 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
   const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
 
   return (
-    <div className="brain-login">
+    <div className="brain-login" style={{
+      '--cream': copy.color_cream,
+      '--ink': copy.color_ink,
+      '--pink': copy.color_pink,
+      '--purple': copy.color_purple,
+      '--muted': copy.color_muted,
+      '--white': copy.color_white,
+      '--line': copy.color_line,
+      '--danger': copy.color_danger
+    }}>
       <main className="brain-login__content">
         <img src={copy.brain_icon_url || LOGIN_ASSETS.brain} alt="" className="brain-login__brain" />
         <h1>{copy.login_heading}</h1>
@@ -140,17 +231,13 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
 
       <style>{`
         .brain-login {
-          --cream: #fdfbef;
-          --ink: #0b0b2d;
-          --pink: #ff008f;
-          --muted: #b7b7b7;
           position: relative;
           height: auto;
           min-height: 100%;
           width: 100%;
           overflow: visible;
           background: var(--cream);
-          color: #000;
+          color: var(--ink);
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
@@ -208,7 +295,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           display: block;
           height: 40px;
           margin: 0 0 22px;
-          border-bottom: 1px solid #0b0b2d;
+          border-bottom: 1px solid var(--ink);
         }
 
         .brain-login__field input {
@@ -267,7 +354,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
         }
 
         .brain-login__forgot:hover,
-        .brain-login__create:hover { color: #302798; transform: translateY(-1px); }
+        .brain-login__create:hover { color: var(--purple); transform: translateY(-1px); }
         .brain-login__forgot:active,
         .brain-login__create:active { transform: translateY(1px) scale(.98); }
 
@@ -280,7 +367,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           border-radius: 50px;
           background: var(--pink);
           box-shadow: 4px 4px var(--ink);
-          color: #fff;
+          color: var(--white);
           transform: rotate(-3deg);
           transition: background-color 300ms ease-in-out, transform 300ms ease-in-out, box-shadow 300ms ease-in-out;
           cursor: pointer;
@@ -295,12 +382,12 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           position: relative;
           z-index: 1;
           display: block;
-          color: #fff;
+          color: var(--white);
           font: 700 18px/47px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           transform: none;
         }
 
-        .brain-login__submit:hover:not(:disabled) { background: #302798; transform: rotate(0deg); }
+        .brain-login__submit:hover:not(:disabled) { background: var(--purple); transform: rotate(0deg); }
         .brain-login__submit:active:not(:disabled) { transform: translate(2px, 2px) rotate(0deg); box-shadow: 2px 2px var(--ink); }
         .brain-login__submit:disabled { opacity: .65; cursor: default; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
@@ -371,11 +458,11 @@ function SignedOutFlow({ settings }) {
   }, [])
 
   if (view === 'create-account') {
-    return <CreateAccountScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} />
+    return <CreateAccountScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} theme={settings} />
   }
 
   if (view === 'forgot-password') {
-    return <ForgotPasswordScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} />
+    return <ForgotPasswordScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} theme={settings} />
   }
 
   return (

@@ -1,10 +1,7 @@
 import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
-import crypto from 'crypto'
 import { detectLanguage } from '../lib/detectLanguage.js'
-import { clerkClient } from '../lib/clerk.js'
-import { clerkProfile } from '../lib/clerkProfile.js'
 
 const router = Router()
 
@@ -20,37 +17,7 @@ router.get('/users', async (req, res) => {
 
     if (error) throw error
 
-    let users = storedUsers || []
-
-    // Clerk owns participant identity. Refresh the local reporting fields so
-    // the curator never sees stale names, email addresses, offices or years.
-    try {
-      const clerkPage = await clerkClient.users.getUserList({ limit: 500 })
-      const clerkUsers = new Map(clerkPage.data.map(user => [user.id, user]))
-
-      users = await Promise.all(users.map(async user => {
-        const clerkUser = clerkUsers.get(user.clerk_user_id)
-        if (!clerkUser) return user
-
-        const profile = clerkProfile(clerkUser, user)
-        const changed = Object.entries(profile).some(([key, value]) => user[key] !== value)
-        if (changed) {
-          const { error: syncError } = await supabase.from('users').update(profile).eq('id', user.id)
-          if (syncError) console.error(`Failed to refresh Clerk user ${user.id}:`, syncError)
-        }
-
-        return {
-          ...user,
-          ...profile,
-          clerk_last_login: clerkUser.lastSignInAt
-            ? new Date(clerkUser.lastSignInAt).toISOString()
-            : null
-        }
-      }))
-    } catch (clerkError) {
-      // The dashboard should still load from Supabase during a transient Clerk outage.
-      console.error('Clerk user refresh error:', clerkError)
-    }
+    const users = storedUsers || []
 
     const { data: usage } = await supabase
       .from('user_token_usage')
@@ -77,7 +44,7 @@ router.get('/users', async (req, res) => {
       tokens_used_this_month: usageMap[u.id]?.tokens_used_this_month || 0,
       daily_limit: usageMap[u.id]?.daily_limit || 30000,
       monthly_limit: usageMap[u.id]?.monthly_limit || 500000,
-      last_login: u.clerk_last_login || lastLoginMap[u.id] || null
+      last_login: lastLoginMap[u.id] || null
     }))
 
     res.json({ users: enriched })
@@ -131,36 +98,10 @@ router.delete('/users/:id', async (req, res) => {
   }
 })
 
-// POST /admin/invite
-router.post('/invite', async (req, res) => {
-  try {
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-
-    const { data: invite, error } = await supabase
-      .from('invite_links')
-      .insert({
-        token,
-        created_by: req.user.id,
-        expires_at: expiresAt
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    const inviteUrl = `${process.env.FRONTEND_URL}/register?token=${token}`
-    res.json({ invite_url: inviteUrl, expires_at: expiresAt })
-  } catch (err) {
-    console.error('Admin invite error:', err)
-    res.status(500).json({ error: 'Failed to generate invite' })
-  }
-})
-
 // GET /admin/conversations
 router.get('/conversations', async (req, res) => {
   try {
-    const { user_id, flagged, language, limit = 50, offset = 0 } = req.query
+    const { user_id, language, limit = 50, offset = 0 } = req.query
 
     let query = supabase
       .from('conversations')
@@ -172,23 +113,41 @@ router.get('/conversations', async (req, res) => {
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1)
 
     if (user_id) query = query.eq('user_id', user_id)
-    if (language) query = query.eq('language', language)
-
     const { data: conversations, error } = await query
     if (error) throw error
 
-    if (flagged === 'true') {
-      const { data: flaggedMsgs } = await supabase
+    const conversationIds = conversations.map(conversation => conversation.id)
+    let firstQuestions = []
+    if (conversationIds.length > 0) {
+      const { data: userMessages, error: messagesError } = await supabase
         .from('messages')
-        .select('conversation_id')
-        .eq('flagged', true)
+        .select('conversation_id, content, created_at')
+        .eq('role', 'user')
+        .in('conversation_id', conversationIds)
+        .order('created_at', { ascending: true })
 
-      const flaggedIds = new Set(flaggedMsgs?.map(m => m.conversation_id))
-      const filtered = conversations.filter(c => flaggedIds.has(c.id))
-      return res.json({ conversations: filtered })
+      if (messagesError) throw messagesError
+      const seen = new Set()
+      firstQuestions = (userMessages || []).filter(message => {
+        if (seen.has(message.conversation_id)) return false
+        seen.add(message.conversation_id)
+        return true
+      })
     }
 
-    res.json({ conversations })
+    const languageByConversation = new Map(
+      firstQuestions.map(message => [message.conversation_id, detectLanguage(message.content, 'en').toLowerCase()])
+    )
+    const enriched = conversations.map(conversation => ({
+      ...conversation,
+      detected_language: languageByConversation.get(conversation.id) || 'en'
+    }))
+    const filtered = language
+      ? enriched.filter(conversation => conversation.detected_language === String(language).toLowerCase())
+      : enriched
+    const languages = [...new Set(enriched.map(conversation => conversation.detected_language))].sort()
+
+    res.json({ conversations: filtered, languages })
   } catch (err) {
     console.error('Admin conversations error:', err)
     res.status(500).json({ error: 'Failed to fetch conversations' })
@@ -252,27 +211,16 @@ router.get('/conversations/:id', async (req, res) => {
       attachments: attachmentsByMessage[m.id] || []
     }))
 
-    res.json({ conversation, messages: messagesWithAttachments })
+    const firstQuestion = messages.find(message => message.role === 'user')
+    const detectedLanguage = detectLanguage(firstQuestion?.content || '', 'en').toLowerCase()
+
+    res.json({
+      conversation: { ...conversation, detected_language: detectedLanguage },
+      messages: messagesWithAttachments
+    })
   } catch (err) {
     console.error('Admin conversation thread error:', err)
     res.status(500).json({ error: 'Failed to fetch conversation' })
-  }
-})
-// PATCH /admin/conversations/:id/flag
-router.patch('/conversations/:id/flag', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { flagged } = req.body
-
-    await supabase
-      .from('messages')
-      .update({ flagged })
-      .eq('conversation_id', id)
-
-    res.json({ message: 'Conversation flagged' })
-  } catch (err) {
-    console.error('Flag error:', err)
-    res.status(500).json({ error: 'Failed to flag conversation' })
   }
 })
 
@@ -293,11 +241,14 @@ router.get('/conversations/:id/export', async (req, res) => {
       .eq('conversation_id', id)
       .order('created_at', { ascending: true })
 
+    const firstQuestion = messages?.find(message => message.role === 'user')
+    const detectedLanguage = detectLanguage(firstQuestion?.content || '', 'en').toLowerCase()
+
     const lines = [
       `SHIFT Brain 2.0 — Conversation Export`,
       `User: ${conversation.users?.full_name || 'Unknown'}`,
       `Date: ${new Date(conversation.created_at).toLocaleString()}`,
-      `Language: ${conversation.language}`,
+      `Language: ${detectedLanguage}`,
       `Title: ${conversation.title || 'Untitled'}`,
       ``,
       `---`,

@@ -9,9 +9,16 @@ function clerkError(error, fallback) {
     || fallback
 }
 
-function AuthLayout({ title, subtitle, children, modifier = '', help = null, brainIcon }) {
+function AuthLayout({ title, subtitle, children, modifier = '', help = null, brainIcon, theme = {} }) {
   return (
-    <div className={`brain-auth ${modifier}`}>
+    <div className={`brain-auth ${modifier}`} style={{
+      '--cream': theme.color_cream || '#fdfbef',
+      '--ink': theme.color_ink || '#0b0b2d',
+      '--pink': theme.color_pink || '#ff008f',
+      '--purple': theme.color_purple || '#302798',
+      '--muted': theme.color_muted || '#b7b7b7',
+      '--white': theme.color_white || '#ffffff'
+    }}>
       <main className="brain-auth__content">
         <img className="brain-auth__brain" src={brainIcon || BRAIN_ASSET} alt="" />
         <h1>{title}</h1>
@@ -22,10 +29,6 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
 
       <style>{`
         .brain-auth {
-          --cream: #fdfbef;
-          --ink: #0b0b2d;
-          --pink: #ff008f;
-          --muted: #b7b7b7;
           width: 100%;
           height: auto;
           min-height: 100%;
@@ -139,7 +142,7 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           transition: color 300ms ease-in-out, transform 300ms ease-in-out;
         }
 
-        .brain-auth__back:hover { color: #302798; transform: translateX(-3px); }
+        .brain-auth__back:hover { color: var(--purple); transform: translateX(-3px); }
         .brain-auth__back:active { transform: translateX(-1px) scale(.97); }
 
         .brain-auth__submit {
@@ -151,7 +154,7 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           border-radius: 50px;
           background: var(--pink);
           box-shadow: 4px 4px var(--ink);
-          color: #fff;
+          color: var(--white);
           transform: rotate(-3deg);
           transition: background-color 300ms ease-in-out, transform 300ms ease-in-out, box-shadow 300ms ease-in-out;
           cursor: pointer;
@@ -166,13 +169,13 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           position: relative;
           z-index: 1;
           display: block;
-          color: #fff;
+          color: var(--white);
           font: 700 14px/47px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           transform: none;
           white-space: nowrap;
         }
 
-        .brain-auth__submit:hover:not(:disabled) { background: #302798; transform: rotate(0deg); }
+        .brain-auth__submit:hover:not(:disabled) { background: var(--purple); transform: rotate(0deg); }
         .brain-auth__submit:active:not(:disabled) { transform: translate(2px, 2px) rotate(0deg); box-shadow: 2px 2px var(--ink); }
         .brain-auth__submit:disabled { opacity: .6; cursor: default; }
         .brain-auth__captcha { margin-top: -10px; }
@@ -220,7 +223,7 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
   )
 }
 
-export function CreateAccountScreen({ onBack, brainIcon }) {
+export function CreateAccountScreen({ onBack, brainIcon, theme }) {
   const { isLoaded, signUp, setActive } = useSignUp()
   const [stage, setStage] = useState('details')
   const [fullName, setFullName] = useState('')
@@ -280,6 +283,7 @@ export function CreateAccountScreen({ onBack, brainIcon }) {
       subtitle={stage === 'verify' ? `Enter the verification code sent to ${emailAddress}.` : ''}
       modifier="brain-auth--signup"
       brainIcon={brainIcon}
+      theme={theme}
     >
       <form className="brain-auth__form" onSubmit={stage === 'verify' ? verifyAccount : createAccount}>
         {stage === 'details' ? (
@@ -307,7 +311,7 @@ export function CreateAccountScreen({ onBack, brainIcon }) {
   )
 }
 
-export function ForgotPasswordScreen({ onBack, brainIcon }) {
+export function ForgotPasswordScreen({ onBack, brainIcon, theme }) {
   const { isLoaded, signIn, setActive } = useSignIn()
   const [stage, setStage] = useState('request')
   const [emailAddress, setEmailAddress] = useState('')
@@ -372,6 +376,7 @@ export function ForgotPasswordScreen({ onBack, brainIcon }) {
         : `Enter the code sent to ${emailAddress} and choose a new password.`}
       modifier="brain-auth--forgot"
       brainIcon={brainIcon}
+      theme={theme}
       help={stage === 'request' ? (
         <p className="brain-auth__help">
           If you are still having problems, just send us an email and we will sort it out for you!{' '}

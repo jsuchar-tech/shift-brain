@@ -98,7 +98,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
           width: 100%;
           height: 100%;
           padding: 17px 14px 12px;
-          background: #fff;
+          background: var(--white, #fff);
           border-radius: 10px;
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
         }
@@ -113,11 +113,11 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
           resize: none;
           overflow: hidden;
           background: transparent;
-          color: #0b0b2d;
+          color: var(--ink, #0b0b2d);
           font: 17px/31px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
-        .brain-input textarea::placeholder { color: #b7b7b7; opacity: 1; }
+        .brain-input textarea::placeholder { color: var(--muted, #b7b7b7); opacity: 1; }
 
         .brain-input__footer {
           position: absolute;
@@ -152,7 +152,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
         .brain-input__tokens {
           justify-self: center;
           width: 127px;
-          color: #0b0b2d;
+          color: var(--ink, #0b0b2d);
           font: 11px/28px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           text-align: center;
           white-space: nowrap;
@@ -167,7 +167,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
           align-items: center;
           gap: 8px;
           padding: 6px 10px;
-          background: #fff;
+          background: var(--white, #fff);
           border-radius: 8px;
           box-shadow: 0 2px 8px rgba(0,0,0,.06);
           color: #666;

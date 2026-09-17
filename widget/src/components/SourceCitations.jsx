@@ -41,13 +41,13 @@ export default function SourceCitations({ citations }) {
       </div>
 
       <style>{`
-        .brain-sources { width: 100%; margin-top: 27px; padding-top: 15px; border-top: 1px solid #deddd5; }
+        .brain-sources { width: 100%; margin-top: 27px; padding-top: 15px; border-top: 1px solid var(--line, #deddd5); }
         .brain-sources__heading {
           display: flex;
           align-items: center;
           justify-content: space-between;
           margin-bottom: 10px;
-          color: #ff008f;
+          color: var(--pink, #ff008f);
           font: 700 10px/18px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         .brain-sources__heading span:last-child {
@@ -55,7 +55,7 @@ export default function SourceCitations({ citations }) {
           width: 20px;
           height: 20px;
           place-items: center;
-          border: 1px solid #ff008f;
+          border: 1px solid var(--pink, #ff008f);
           border-radius: 50%;
           font-size: 9px;
         }
@@ -69,19 +69,19 @@ export default function SourceCitations({ citations }) {
           padding: 9px 11px;
           border: 1px solid rgba(222,221,213,.85);
           border-radius: 10px;
-          background: #fff;
-          color: #0b0b2d;
+          background: var(--white, #fff);
+          color: var(--ink, #0b0b2d);
           text-decoration: none;
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.035);
         }
-        a.brain-sources__item:hover { border-color: #ff008f; }
-        .brain-sources__number { flex: 0 0 auto; color: #ff008f; font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        a.brain-sources__item:hover { border-color: var(--pink, #ff008f); }
+        .brain-sources__number { flex: 0 0 auto; color: var(--pink, #ff008f); font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         .brain-sources__content { min-width: 0; flex: 1; }
         .brain-sources__content strong,
         .brain-sources__content small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .brain-sources__content strong { font-size: 11px; font-weight: 500; line-height: 16px; }
         .brain-sources__content small { color: #9d9d9d; font-size: 9px; line-height: 14px; }
-        .brain-sources__arrow { flex: 0 0 auto; color: #ff008f; font-size: 13px; }
+        .brain-sources__arrow { flex: 0 0 auto; color: var(--pink, #ff008f); font-size: 13px; }
         @media (max-width: 560px) { .brain-sources__list { grid-template-columns: 1fr; } }
       `}</style>
     </section>

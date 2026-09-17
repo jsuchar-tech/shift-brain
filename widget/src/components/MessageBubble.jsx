@@ -76,7 +76,7 @@ export default function MessageBubble({ message, fontSize = 16 }) {
           min-height: 44px;
           padding: 9px 28px;
           border-radius: 10px;
-          background: #ffd000;
+          background: var(--yellow, #ffd000);
           line-height: 26px;
         }
 
@@ -89,18 +89,18 @@ export default function MessageBubble({ message, fontSize = 16 }) {
         .brain-message__markdown ol { margin: 0 0 24px; padding-left: 24px; }
         .brain-message__markdown li { margin-bottom: 6px; }
         .brain-message__markdown strong { font-weight: 600; }
-        .brain-message__markdown a { color: #ff008f; text-underline-offset: 3px; }
+        .brain-message__markdown a { color: var(--pink, #ff008f); text-underline-offset: 3px; }
         .brain-message__markdown code { padding: 2px 5px; border-radius: 4px; background: rgba(255,255,255,.8); font-size: .88em; }
 
         .brain-message__attachments { margin-top: 5px; color: rgba(0,0,0,.6); font-size: 11px; line-height: 16px; }
-        .brain-message__attachments::before { content: '+ '; color: #ff008f; }
+        .brain-message__attachments::before { content: '+ '; color: var(--pink, #ff008f); }
 
         .brain-message__cursor {
           display: inline-block;
           width: 2px;
           height: 1em;
           margin-left: 3px;
-          background: #ff008f;
+          background: var(--pink, #ff008f);
           animation: brain-message-blink 1s steps(2, start) infinite;
           vertical-align: -.12em;
         }
@@ -111,7 +111,7 @@ export default function MessageBubble({ message, fontSize = 16 }) {
           padding: 0;
           border: 0;
           background: transparent;
-          color: #ff008f;
+          color: var(--pink, #ff008f);
           font: 700 10px/18px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           letter-spacing: .01em;
           text-align: left;

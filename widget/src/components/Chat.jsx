@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useAuth, useUser } from '@clerk/clerk-react'
+import { useAuth } from '@clerk/clerk-react'
 import MessageList from './MessageList'
 import InputBar from './InputBar'
 import ConversationSidebar from './ConversationSidebar'
 import { useChat } from '../hooks/useChat'
 import { useTokenUsage } from '../hooks/useTokenUsage'
 import { useConversations } from '../hooks/useConversations'
-import { syncUser, uploadFile, updateFontSize } from '../lib/api'
+import { uploadFile, updateFontSize } from '../lib/api'
 
 const ASSETS = {
   brain: 'https://www.figma.com/api/mcp/asset/09ee25a7-b3ca-4128-96ee-5d6f95faff76.png',
@@ -26,10 +26,8 @@ function nearestFontSizePreset(value) {
   )
 }
 
-export default function Chat({ onOpenDashboard, settings }) {
+export default function Chat({ onOpenDashboard, settings, currentUser }) {
   const { getToken, signOut } = useAuth()
-  const { user } = useUser()
-  const [synced, setSynced] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
   const [fontSize, setFontSize] = useState(16)
@@ -55,23 +53,8 @@ export default function Chat({ onOpenDashboard, settings }) {
   } = useConversations(getToken)
 
   useEffect(() => {
-    if (!user || synced) return
-
-    const metadata = user.publicMetadata || {}
-    const signupMetadata = user.unsafeMetadata || {}
-
-    syncUser(getToken, {
-      full_name: user.fullName || user.firstName,
-      work_email: user.primaryEmailAddress?.emailAddress,
-      country_office: metadata.country_office || signupMetadata.country_office || 'Unknown',
-      shifter_year: metadata.shifter_year || 1
-    })
-      .then(data => {
-        setSynced(true)
-        if (data?.user?.font_size) setFontSize(nearestFontSizePreset(data.user.font_size))
-      })
-      .catch(console.error)
-  }, [user, synced, getToken])
+    if (currentUser?.font_size) setFontSize(nearestFontSizePreset(currentUser.font_size))
+  }, [currentUser])
 
   async function handleSend(text) {
     const attachment = uploadedFile?.file_name ? uploadedFile : null
@@ -122,9 +105,29 @@ export default function Chat({ onOpenDashboard, settings }) {
 
   const showWelcome = messages.length === 0
   const welcomeCopy = settings?.chat_welcome || 'Let’s start building your movement today!'
+  const assets = {
+    brain: settings?.brain_icon_url || ASSETS.brain,
+    plusBase: settings?.plus_base_icon_url || ASSETS.plusBase,
+    plusIcon: settings?.plus_glyph_icon_url || ASSETS.plusIcon,
+    sendBase: settings?.send_base_icon_url || ASSETS.sendBase,
+    sendIcon: settings?.send_glyph_icon_url || ASSETS.sendIcon
+  }
+  const theme = {
+    '--cream': settings?.color_cream || '#fdfbef',
+    '--ink': settings?.color_ink || '#0b0b2d',
+    '--pink': settings?.color_pink || '#ff008f',
+    '--purple': settings?.color_purple || '#302798',
+    '--muted': settings?.color_muted || '#b7b7b7',
+    '--yellow': settings?.color_yellow || '#ffd000',
+    '--white': settings?.color_white || '#ffffff',
+    '--line': settings?.color_line || '#deddd5',
+    '--soft-pink': settings?.color_soft_pink || '#ffc2df',
+    '--success': settings?.color_success || '#2d7a3a',
+    '--danger': settings?.color_danger || '#c53030'
+  }
 
   return (
-    <div className="brain-chat">
+    <div className="brain-chat" style={theme}>
       <div
         className={`brain-chat__sidebar-backdrop ${sidebarOpen ? 'is-open' : ''}`}
         onClick={() => setSidebarOpen(false)}
@@ -149,7 +152,7 @@ export default function Chat({ onOpenDashboard, settings }) {
       <main className={`brain-chat__main ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}>
         <div className="brain-chat__top-controls">
           <button
-            className="brain-chat__sidebar-toggle brain-chat__mobile-sidebar-toggle"
+            className={`brain-chat__sidebar-toggle brain-chat__mobile-sidebar-toggle ${sidebarOpen ? 'is-open' : ''}`}
             onClick={() => setSidebarOpen(open => !open)}
             aria-label={sidebarOpen ? 'Close chat history' : 'Open chat history'}
           >
@@ -190,7 +193,7 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         {showWelcome ? (
           <section className="brain-chat__welcome">
-            <img className="brain-chat__brain" src={settings?.brain_icon_url || ASSETS.brain} alt="" />
+            <img className="brain-chat__brain" src={assets.brain} alt="" />
             <h1>{welcomeCopy}</h1>
           </section>
         ) : (
@@ -211,7 +214,7 @@ export default function Chat({ onOpenDashboard, settings }) {
             onFileUpload={handleFileUpload}
             uploadedFile={uploadedFile}
             onClearFile={() => setUploadedFile(null)}
-            assets={ASSETS}
+            assets={assets}
             showWelcome={showWelcome}
             tokensRemaining={usage?.daily_remaining}
           />
@@ -220,10 +223,6 @@ export default function Chat({ onOpenDashboard, settings }) {
 
       <style>{`
         .brain-chat {
-          --cream: #fdfbef;
-          --ink: #0b0b2d;
-          --pink: #ff008f;
-          --muted: #b7b7b7;
           position: relative;
           display: flex;
           width: 100%;
@@ -245,7 +244,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           min-height: 0;
           height: 100%;
           overflow: hidden;
-          border-top: 1px solid #deddd5;
+          border-top: 1px solid var(--line);
         }
 
         .brain-chat__top-controls {
@@ -272,7 +271,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           border: 0;
           border-radius: 50%;
           background: var(--cream);
-          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+          box-shadow: none;
           cursor: pointer;
         }
 
@@ -332,7 +331,7 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         .brain-chat__font-button.is-active {
           background: var(--pink);
-          color: #fff;
+          color: var(--white);
         }
 
         .brain-chat__font-button:hover:not(.is-active) { color: var(--pink); }
@@ -354,8 +353,8 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         .brain-chat__dashboard:hover {
           border-color: var(--ink);
-          background: #302798;
-          color: #fff;
+          background: var(--purple);
+          color: var(--white);
           box-shadow: 4px 4px var(--ink);
           transform: rotate(-2deg);
         }
@@ -408,7 +407,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           background: #fff5f5;
           border: 1px solid #fed7d7;
           border-radius: 8px;
-          color: #c53030;
+          color: var(--danger);
           font-size: 13px;
         }
 
@@ -467,18 +466,18 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         .brain-chat button:not(:disabled):active { scale: .97; }
         .brain-chat__font-button:hover:not(.is-active) { background: rgba(255, 0, 143, .12); color: var(--pink); }
-        .brain-chat__font-button.is-active:hover { background: #302798; }
+        .brain-chat__font-button.is-active:hover { background: var(--purple); }
         .brain-chat__sidebar-toggle:hover,
         .brain-sidebar__collapse:hover,
-        .brain-sidebar__mobile-close:hover { background: #302798; transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
+        .brain-sidebar__mobile-close:hover { background: var(--purple); transform: rotate(-3deg); box-shadow: none; }
         .brain-chat__sidebar-toggle:hover .brain-chat__arrow,
         .brain-sidebar__collapse:hover .brain-sidebar__arrow,
-        .brain-sidebar__mobile-close:hover .brain-sidebar__arrow { border-color: #fff; }
-        .brain-sidebar__search:hover { background: #302798; transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
-        .brain-sidebar__search:hover .brain-sidebar__search-icon { border-color: #fff; }
-        .brain-sidebar__search:hover .brain-sidebar__search-icon::after { background: #fff; }
-        .brain-sidebar__new:hover { border-color: var(--ink); background: #302798; color: #fff; box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
-        .brain-sidebar__logout:hover { color: #302798; }
+        .brain-sidebar__mobile-close:hover .brain-sidebar__arrow { border-color: var(--white); }
+        .brain-sidebar__search:hover { background: var(--purple); transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
+        .brain-sidebar__search:hover .brain-sidebar__search-icon { border-color: var(--white); }
+        .brain-sidebar__search:hover .brain-sidebar__search-icon::after { background: var(--white); }
+        .brain-sidebar__new:hover { border-color: var(--ink); background: var(--purple); color: var(--white); box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
+        .brain-sidebar__logout:hover { color: var(--purple); }
         .brain-sidebar__item:hover { transform: translateX(3px); }
         .brain-input__icon:hover:not(:disabled) { transform: scale(1.08) rotate(-3deg); filter: saturate(1.15); }
 
@@ -511,6 +510,8 @@ export default function Chat({ onOpenDashboard, settings }) {
             top: 0;
             display: flex;
           }
+          .brain-chat__mobile-sidebar-toggle .brain-chat__arrow { transform: rotate(225deg); margin-left: -4px; }
+          .brain-chat__mobile-sidebar-toggle.is-open .brain-chat__arrow { transform: rotate(45deg); margin-left: 4px; }
           .brain-chat__sidebar-reopen { display: none; }
           .brain-chat__controls { gap: 8px; }
         }

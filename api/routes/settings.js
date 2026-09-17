@@ -4,6 +4,21 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const DEFAULT_SETTINGS = {
   brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
+  plus_base_icon_url: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
+  plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
+  send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
+  send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
+  color_cream: '#fdfbef',
+  color_ink: '#0b0b2d',
+  color_pink: '#ff008f',
+  color_purple: '#302798',
+  color_muted: '#b7b7b7',
+  color_yellow: '#ffd000',
+  color_white: '#ffffff',
+  color_line: '#deddd5',
+  color_soft_pink: '#ffc2df',
+  color_success: '#2d7a3a',
+  color_danger: '#c53030',
   login_heading: 'Hello there!',
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
@@ -12,6 +27,8 @@ const DEFAULT_SETTINGS = {
   login_forgot_password: 'Forgot password?',
   login_create_account: 'Create an account',
   login_button: 'LOG IN',
+  signup_pending_heading: 'Your account is awaiting approval',
+  signup_pending_message: 'A curator needs to approve your signup before you can access SHIFT Brain. You can leave this page and return later.',
   dashboard_title: 'Curator Dashboard',
   dashboard_back_to_chat: '← Back to chat',
   dashboard_participants: 'Participants',
@@ -22,8 +39,9 @@ const DEFAULT_SETTINGS = {
   chat_welcome: 'Let’s start building your movement today!'
 }
 
-const URL_FIELDS = ['brain_icon_url']
-const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => !URL_FIELDS.includes(key))
+const URL_FIELDS = ['brain_icon_url', 'plus_base_icon_url', 'plus_glyph_icon_url', 'send_base_icon_url', 'send_glyph_icon_url']
+const COLOR_FIELDS = ['color_cream', 'color_ink', 'color_pink', 'color_purple', 'color_muted', 'color_yellow', 'color_white', 'color_line', 'color_soft_pink', 'color_success', 'color_danger']
+const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => !URL_FIELDS.includes(key) && !COLOR_FIELDS.includes(key))
 
 function cleanSettings(input = {}) {
   const next = { ...DEFAULT_SETTINGS }
@@ -43,6 +61,10 @@ function cleanSettings(input = {}) {
     } catch {
       next[key] = DEFAULT_SETTINGS[key]
     }
+  }
+
+  for (const key of COLOR_FIELDS) {
+    if (!/^#[0-9a-f]{6}$/i.test(next[key])) next[key] = DEFAULT_SETTINGS[key]
   }
 
   for (const key of TEXT_FIELDS) {

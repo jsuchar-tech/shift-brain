@@ -150,8 +150,8 @@ export default function ConversationSidebar({
           display: flex;
           flex-direction: column;
           background: var(--cream, #fdfbef);
-          border-top: 1px solid #deddd5;
-          border-right: 1px solid #deddd5;
+          border-top: 1px solid var(--line, #deddd5);
+          border-right: 1px solid var(--line, #deddd5);
           transition: flex-basis .38s cubic-bezier(.22, 1, .36, 1), width .38s cubic-bezier(.22, 1, .36, 1), transform .38s cubic-bezier(.22, 1, .36, 1);
         }
 
@@ -186,7 +186,7 @@ export default function ConversationSidebar({
 
         .brain-sidebar__title {
           margin-left: clamp(18px, calc(18px + (100vw - 768px) * .076), 54px);
-          color: #b7b7b7;
+          color: var(--muted, #b7b7b7);
           font-size: 12px;
           line-height: 34px;
         }
@@ -207,7 +207,7 @@ export default function ConversationSidebar({
           padding: 0;
           border: 0;
           border-radius: 999px;
-          background: #ffc2df;
+          background: var(--soft-pink, #ffc2df);
           cursor: pointer;
         }
 
@@ -222,8 +222,8 @@ export default function ConversationSidebar({
           border: 1px solid var(--pink, #ff008f);
           outline: 0;
           border-radius: 999px;
-          background: #fff;
-          color: #0b0b2d;
+          background: var(--white, #fff);
+          color: var(--ink, #0b0b2d);
           font: 13px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
         }
@@ -261,11 +261,11 @@ export default function ConversationSidebar({
           width: 100%;
           min-height: 40px;
           padding: 0 16px;
-          border: 1px solid #0b0b2d;
+          border: 1px solid var(--ink, #0b0b2d);
           border-radius: 999px;
           background: var(--pink, #ff008f);
-          box-shadow: 3px 4px 0 #0b0b2d;
-          color: #fff;
+          box-shadow: 3px 4px 0 var(--ink, #0b0b2d);
+          color: var(--white, #fff);
           font: 600 12px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           cursor: pointer;
         }
@@ -286,8 +286,8 @@ export default function ConversationSidebar({
           padding: 0;
           border: 0;
           border-radius: 50%;
-          background: #fff;
-          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+          background: var(--white, #fff);
+          box-shadow: none;
           cursor: pointer;
         }
 
@@ -378,7 +378,7 @@ export default function ConversationSidebar({
           min-width: var(--sidebar-width);
           padding: 0 0 0 clamp(24px, calc(24px + (100vw - 768px) * .07), 57px);
           border: 0;
-          border-top: 1px solid #deddd5;
+          border-top: 1px solid var(--line, #deddd5);
           background: transparent;
           color: var(--pink, #ff008f);
           font: 12px/30px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -404,8 +404,8 @@ export default function ConversationSidebar({
           padding: 0;
           border: 0;
           border-radius: 50%;
-          background: #fff;
-          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+          background: var(--white, #fff);
+          box-shadow: none;
           cursor: pointer;
         }
 
@@ -451,8 +451,8 @@ export default function ConversationSidebar({
             padding: 0;
             border: 0;
             border-radius: 50%;
-            background: #fff;
-            box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+            background: var(--white, #fff);
+            box-shadow: none;
             cursor: pointer;
           }
           .brain-sidebar__mobile-close .brain-sidebar__arrow { margin-left: 4px; }
@@ -469,16 +469,29 @@ export default function ConversationSidebar({
           .brain-sidebar__tools {
             position: absolute;
             z-index: 35;
-            right: 30px;
-            bottom: 50px;
-            left: 30px;
+            right: 0;
+            bottom: 0;
+            left: 0;
             display: flex;
             flex-direction: row;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-end;
             gap: 17px;
-            padding: 0;
+            padding: 45px 30px 50px;
+            background: var(--cream, #fdfbef);
           }
+          .brain-sidebar__tools::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 100%;
+            height: 84px;
+            background: linear-gradient(to bottom, transparent, var(--cream, #fdfbef));
+            pointer-events: none;
+          }
+          .brain-sidebar__tools > * { position: relative; z-index: 1; }
+          .brain-sidebar__search-input { position: absolute; z-index: 2; right: 30px; bottom: 102px; left: 30px; width: auto; }
           .brain-sidebar__search { flex: 0 0 40px; width: 40px; height: 40px; }
           .brain-sidebar__new {
             flex: 0 0 134px;
@@ -496,7 +509,7 @@ export default function ConversationSidebar({
           .brain-sidebar__new:active { transform: none; box-shadow: none; background: rgba(255,0,143,.06); }
           .brain-sidebar__list {
             margin-top: 0;
-            padding: 0 30px 150px;
+            padding: 0 30px 190px;
             scrollbar-width: none;
             mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 120px), transparent 100%);
           }

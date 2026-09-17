@@ -74,23 +74,13 @@ function TabButton({ label, active, onClick }) {
 function ParticipantsTab({ getToken }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [inviteUrl, setInviteUrl] = useState(null)
 
   useEffect(() => {
     adminFetch('/admin/users', getToken)
-      .then(d => setUsers(d.users || []))
+      .then(d => setUsers((d.users || []).sort((a, b) => Number(a.is_active) - Number(b.is_active))))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [getToken])
-
-  async function generateInvite() {
-    try {
-      const data = await adminFetch('/admin/invite', getToken, { method: 'POST' })
-      setInviteUrl(data.invite_url)
-    } catch {
-      alert('Failed to generate invite')
-    }
-  }
 
   async function toggleUser(id, is_active) {
     await adminFetch(`/admin/users/${id}`, getToken, {
@@ -102,22 +92,17 @@ function ParticipantsTab({ getToken }) {
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
 
+  const pendingCount = users.filter(user => !user.is_active && user.role !== 'admin').length
+
   return (
     <div className="brain-admin-tab">
       <div className="brain-admin-toolbar">
-        <div><p className="brain-admin-eyebrow">Community</p><h2>Participants <span>{users.length}</span></h2></div>
-        <button className="brain-admin-button brain-admin-button--primary" onClick={generateInvite}>
-          + Generate invite link
-        </button>
-      </div>
-
-      {inviteUrl && (
-        <div className="brain-admin-notice">
-          <strong>Invite link (48hrs):</strong><br />
-          <span>{inviteUrl}</span>
-          <button className="brain-admin-button brain-admin-button--small" onClick={() => { navigator.clipboard.writeText(inviteUrl); alert('Copied!') }}>Copy</button>
+        <div>
+          <p className="brain-admin-eyebrow">Community</p>
+          <h2>Participants <span>{users.length}</span></h2>
+          <p className="brain-admin-toolbar__description">{pendingCount ? `${pendingCount} signup${pendingCount === 1 ? '' : 's'} waiting for approval` : 'No signups waiting for approval'}</p>
         </div>
-      )}
+      </div>
 
       <div className="brain-admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -133,9 +118,9 @@ function ParticipantsTab({ getToken }) {
                 <td style={{ padding: '10px 8px', color: '#666' }}>{u.shifter_year}</td>
                 <td style={{ padding: '10px 8px', color: '#666' }}>{u.tokens_used_today?.toLocaleString()} / {u.daily_limit?.toLocaleString()}</td>
                 <td style={{ padding: '10px 8px', color: '#666' }}>{u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}</td>
-                <td style={{ padding: '10px 8px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: u.is_active ? '#e6f4ea' : '#fce8e8', color: u.is_active ? '#2d7a3a' : '#c53030' }}>{u.is_active ? 'Active' : 'Disabled'}</span></td>
+                <td style={{ padding: '10px 8px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: u.is_active ? '#e6f4ea' : '#fff0f8', color: u.is_active ? '#2d7a3a' : '#ff008f' }}>{u.is_active ? 'Approved' : 'Pending approval'}</span></td>
                 <td style={{ padding: '10px 8px' }}>
-                  {u.role !== 'admin' && <button onClick={() => toggleUser(u.id, u.is_active)} style={{ padding: '4px 10px', border: '1px solid #ddd', borderRadius: '6px', background: 'white', fontSize: '12px', cursor: 'pointer', color: u.is_active ? '#c53030' : '#2d7a3a' }}>{u.is_active ? 'Disable' : 'Enable'}</button>}
+                  {u.role !== 'admin' && <button className={`brain-admin-button ${u.is_active ? '' : 'brain-admin-button--primary'}`} onClick={() => toggleUser(u.id, u.is_active)}>{u.is_active ? 'Revoke access' : 'Approve'}</button>}
                 </td>
               </tr>
             ))}
@@ -161,17 +146,20 @@ function ConversationsTab({ getToken }) {
   const [selected, setSelected] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState({ flagged: false, language: '' })
+  const [language, setLanguage] = useState('')
+  const [availableLanguages, setAvailableLanguages] = useState([])
 
   useEffect(() => {
     const params = new URLSearchParams()
-    if (filter.flagged) params.set('flagged', 'true')
-    if (filter.language.trim()) params.set('language', filter.language.trim())
+    if (language) params.set('language', language)
     adminFetch(`/admin/conversations?${params}`, getToken)
-      .then(d => setConversations(d.conversations || []))
+      .then(d => {
+        setConversations(d.conversations || [])
+        setAvailableLanguages(d.languages || [])
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [getToken, filter])
+  }, [getToken, language])
 
   async function loadThread(id) {
     const data = await adminFetch(`/admin/conversations/${id}`, getToken)
@@ -197,23 +185,21 @@ function ConversationsTab({ getToken }) {
     <div className="brain-admin-conversations">
       <div className="brain-admin-conversations__list">
         <div className="brain-admin-filters">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', cursor: 'pointer' }}>
-            <input type="checkbox" checked={filter.flagged} onChange={e => setFilter(f => ({ ...f, flagged: e.target.checked }))} />
-            Flagged only
-          </label>
-          <input
-            value={filter.language}
-            onChange={e => setFilter(f => ({ ...f, language: e.target.value }))}
-            placeholder="Language code"
-            aria-label="Filter by language code"
-            style={{ width: '120px', fontSize: '12px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #ddd' }}
-          />
+          <select
+            value={language}
+            onChange={event => setLanguage(event.target.value)}
+            aria-label="Filter conversations by language"
+            className="brain-admin-language-filter"
+          >
+            <option value="">All languages</option>
+            {availableLanguages.map(code => <option key={code} value={code}>{languageLabel(code)}</option>)}
+          </select>
         </div>
         {conversations.map(conv => (
           <button type="button" key={conv.id} onClick={() => loadThread(conv.id)} className={`brain-admin-conversation ${selected?.id === conv.id ? 'is-active' : ''}`}>
             <p style={{ fontSize: '13px', fontWeight: '500', color: '#0b0b2d', marginBottom: '2px' }}>{conv.users?.full_name || 'Unknown'}</p>
             <p style={{ fontSize: '12px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.title || 'Untitled'}</p>
-            <p style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{new Date(conv.created_at).toLocaleDateString()} · {languageLabel(conv.language)}</p>
+            <p style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{new Date(conv.created_at).toLocaleDateString()} · {languageLabel(conv.detected_language)}</p>
           </button>
         ))}
       </div>
@@ -307,6 +293,21 @@ function StatsTab({ getToken }) {
 
 const DEFAULT_SETTINGS = {
   brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
+  plus_base_icon_url: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
+  plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
+  send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
+  send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
+  color_cream: '#fdfbef',
+  color_ink: '#0b0b2d',
+  color_pink: '#ff008f',
+  color_purple: '#302798',
+  color_muted: '#b7b7b7',
+  color_yellow: '#ffd000',
+  color_white: '#ffffff',
+  color_line: '#deddd5',
+  color_soft_pink: '#ffc2df',
+  color_success: '#2d7a3a',
+  color_danger: '#c53030',
   login_heading: 'Hello there!',
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
@@ -315,6 +316,8 @@ const DEFAULT_SETTINGS = {
   login_forgot_password: 'Forgot password?',
   login_create_account: 'Create an account',
   login_button: 'LOG IN',
+  signup_pending_heading: 'Your account is awaiting approval',
+  signup_pending_message: 'A curator needs to approve your signup before you can access SHIFT Brain. You can leave this page and return later.',
   dashboard_title: 'Curator Dashboard',
   dashboard_back_to_chat: '← Back to chat',
   dashboard_participants: 'Participants',
@@ -330,6 +333,16 @@ function SettingsField({ label, value, onChange, multiline = false, type = 'text
     <span className="brain-admin-field__label">{label}</span>
     {multiline ? <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={4} /> : <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} />}
     {help && <span className="brain-admin-field__help">{help}</span>}
+  </label>
+}
+
+function ColorField({ label, value, onChange }) {
+  return <label className="brain-admin-field">
+    <span className="brain-admin-field__label">{label}</span>
+    <span className="brain-admin-color-field">
+      <input type="color" value={value || '#000000'} onChange={e => onChange(e.target.value)} aria-label={`${label} picker`} />
+      <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} placeholder="#000000" maxLength={7} />
+    </span>
   </label>
 }
 
@@ -386,10 +399,33 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
     </div>
 
     <div className="brain-admin-settings__grid">
-    <section className="brain-admin-settings__card">
-      <h3>Brain icon</h3>
+    <section className="brain-admin-settings__card brain-admin-settings__card--wide">
+      <h3>Icons</h3>
       <SettingsField label="Brain icon URL" value={form.brain_icon_url} onChange={v => update('brain_icon_url', v)} help="Use a public HTTPS image URL. It appears on the login, account and chat welcome screens." />
       {form.brain_icon_url && <img src={form.brain_icon_url} alt="Brain icon preview" style={{ width: '91px', height: '81px', objectFit: 'contain', display: 'block' }} onError={e => { e.currentTarget.style.opacity = '.25' }} />}
+      <div className="brain-admin-settings__icon-grid">
+        <SettingsField label="Attachment button base URL" value={form.plus_base_icon_url} onChange={v => update('plus_base_icon_url', v)} />
+        <SettingsField label="Attachment glyph URL" value={form.plus_glyph_icon_url} onChange={v => update('plus_glyph_icon_url', v)} />
+        <SettingsField label="Send button base URL" value={form.send_base_icon_url} onChange={v => update('send_base_icon_url', v)} />
+        <SettingsField label="Send glyph URL" value={form.send_glyph_icon_url} onChange={v => update('send_glyph_icon_url', v)} />
+      </div>
+    </section>
+
+    <section className="brain-admin-settings__card brain-admin-settings__card--wide">
+      <h3>Color palette</h3>
+      <div className="brain-admin-settings__color-grid">
+        <ColorField label="Cream background" value={form.color_cream} onChange={v => update('color_cream', v)} />
+        <ColorField label="Ink" value={form.color_ink} onChange={v => update('color_ink', v)} />
+        <ColorField label="Pink" value={form.color_pink} onChange={v => update('color_pink', v)} />
+        <ColorField label="Purple hover" value={form.color_purple} onChange={v => update('color_purple', v)} />
+        <ColorField label="Muted text" value={form.color_muted} onChange={v => update('color_muted', v)} />
+        <ColorField label="User bubble yellow" value={form.color_yellow} onChange={v => update('color_yellow', v)} />
+        <ColorField label="White surfaces" value={form.color_white} onChange={v => update('color_white', v)} />
+        <ColorField label="Divider line" value={form.color_line} onChange={v => update('color_line', v)} />
+        <ColorField label="Search button pink" value={form.color_soft_pink} onChange={v => update('color_soft_pink', v)} />
+        <ColorField label="Success" value={form.color_success} onChange={v => update('color_success', v)} />
+        <ColorField label="Danger" value={form.color_danger} onChange={v => update('color_danger', v)} />
+      </div>
     </section>
 
     <section className="brain-admin-settings__card brain-admin-settings__card--wide">
@@ -402,6 +438,8 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       <SettingsField label="Forgot password text" value={form.login_forgot_password} onChange={v => update('login_forgot_password', v)} />
       <SettingsField label="Create account text" value={form.login_create_account} onChange={v => update('login_create_account', v)} />
       <SettingsField label="Login button text" value={form.login_button} onChange={v => update('login_button', v)} />
+      <SettingsField label="Approval pending heading" value={form.signup_pending_heading} onChange={v => update('signup_pending_heading', v)} />
+      <SettingsField label="Approval pending message" value={form.signup_pending_message} onChange={v => update('signup_pending_message', v)} multiline />
     </section>
 
     <section className="brain-admin-settings__card">
@@ -417,10 +455,11 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       <SettingsField label="Conversations tab" value={form.dashboard_conversations} onChange={v => update('dashboard_conversations', v)} />
       <SettingsField label="Knowledge base tab" value={form.dashboard_knowledge} onChange={v => update('dashboard_knowledge', v)} />
       <SettingsField label="Usage stats tab" value={form.dashboard_usage} onChange={v => update('dashboard_usage', v)} />
+      <SettingsField label="Settings tab" value={form.dashboard_settings} onChange={v => update('dashboard_settings', v)} />
     </section>
     </div>
 
-    {status && <p style={{ marginTop: '12px', color: status === 'Saved.' ? '#2d7a3a' : '#c53030', fontSize: '12px' }}>{status}</p>}
+    {status && <p style={{ marginTop: '12px', color: status === 'Saved.' ? 'var(--success)' : 'var(--danger)', fontSize: '12px' }}>{status}</p>}
   </div>
 }
 
@@ -438,7 +477,19 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
   ]
   const activeLabel = tabs.find(tab => tab.id === activeTab)?.label || copy.dashboard_title
 
-  return <div className="brain-dashboard">
+  return <div className="brain-dashboard" style={{
+    '--cream': copy.color_cream,
+    '--ink': copy.color_ink,
+    '--pink': copy.color_pink,
+    '--purple': copy.color_purple,
+    '--muted': copy.color_muted,
+    '--yellow': copy.color_yellow,
+    '--white': copy.color_white,
+    '--line': copy.color_line,
+    '--soft-pink': copy.color_soft_pink,
+    '--success': copy.color_success,
+    '--danger': copy.color_danger
+  }}>
     <aside className="brain-dashboard__sidebar">
       <div>
         <p className="brain-dashboard__brand">SHIFT BRAIN</p>
@@ -469,11 +520,6 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
 
     <style>{`
       .brain-dashboard {
-        --cream: #fdfbef;
-        --ink: #0b0b2d;
-        --pink: #ff008f;
-        --muted: #9d9d9d;
-        --line: #deddd5;
         position: relative;
         display: flex;
         width: 100%;
@@ -538,8 +584,8 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         transition: color 300ms ease-in-out, background-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
       }
 
-      .brain-admin-nav__item:hover { background: rgba(255,255,255,.75); color: #302798; transform: translateX(3px); }
-      .brain-admin-nav__item.is-active { background: #fff; color: var(--pink); box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05); }
+      .brain-admin-nav__item:hover { background: rgba(255,255,255,.75); color: var(--purple); transform: translateX(3px); }
+      .brain-admin-nav__item.is-active { background: var(--white); color: var(--pink); box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05); }
       .brain-admin-nav__dot { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
       .brain-admin-nav__item.is-active .brain-admin-nav__dot { background: var(--pink); }
 
@@ -555,7 +601,7 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         cursor: pointer;
         transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
       }
-      .brain-dashboard__back:hover { border-color: var(--ink); background: #302798; color: #fff; box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
+      .brain-dashboard__back:hover { border-color: var(--ink); background: var(--purple); color: var(--white); box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
       .brain-dashboard__back:active { box-shadow: 2px 2px var(--ink); transform: translate(2px, 2px); }
 
       .brain-dashboard__main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -604,16 +650,16 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         padding: 0 14px;
         border: 1px solid var(--line);
         border-radius: 999px;
-        background: #fff;
+        background: var(--white);
         color: var(--ink);
         font-size: 12px;
         cursor: pointer;
         transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border-color 300ms ease-in-out, box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
       }
-      .brain-admin-button--primary { min-height: 39px; padding: 0 18px; border-color: var(--ink); background: var(--pink); color: #fff; box-shadow: 3px 4px 0 var(--ink); }
+      .brain-admin-button--primary { min-height: 39px; padding: 0 18px; border-color: var(--ink); background: var(--pink); color: var(--white); box-shadow: 3px 4px 0 var(--ink); }
       .brain-admin-button--small { min-height: 27px; margin-left: 10px; padding: 0 11px; }
       .brain-admin-button:disabled { opacity: .5; cursor: default; }
-      .brain-admin-button:hover:not(:disabled) { border-color: var(--ink); background: #302798; color: #fff; box-shadow: 4px 4px var(--ink); transform: rotate(-1deg); }
+      .brain-admin-button:hover:not(:disabled) { border-color: var(--ink); background: var(--purple); color: var(--white); box-shadow: 4px 4px var(--ink); transform: rotate(-1deg); }
       .brain-admin-button:active:not(:disabled) { box-shadow: 2px 2px var(--ink); transform: translate(2px, 2px); }
 
       .brain-admin-notice { margin-bottom: 18px; padding: 13px 15px; border: 1px solid #ffc5e4; border-radius: 9px; background: #fff3fa; font-size: 12px; line-height: 19px; }
@@ -631,6 +677,8 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
       .brain-admin-conversations__thread { min-width: 0; overflow-y: auto; padding-left: 24px; }
       .brain-admin-filters { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 15px; }
       .brain-admin-filters input[type="text"] { border-color: var(--line) !important; border-radius: 999px !important; padding: 6px 10px !important; }
+      .brain-admin-language-filter { min-height: 34px; padding: 0 34px 0 12px; border: 1px solid var(--line); border-radius: 999px; outline: 0; background: var(--white); color: var(--ink); font-size: 12px; cursor: pointer; }
+      .brain-admin-language-filter:focus { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(255,0,143,.08); }
       .brain-admin-conversation { display: block; width: 100%; margin: 0 0 5px; padding: 11px 13px; border: 1px solid transparent; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
       .brain-admin-conversation:hover { background: #faf9f3; }
       .brain-admin-conversation.is-active { border-color: #ffc3e3; background: #fff2f9; }
@@ -650,6 +698,8 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
       .brain-admin-settings__card { padding: 20px; border: 1px solid #ecebe4; border-radius: 11px; background: #fdfcf7; }
       .brain-admin-settings__card--wide { grid-column: span 2; }
       .brain-admin-settings__card h3 { margin: 0 0 17px; color: var(--ink); font-size: 14px; font-weight: 600; }
+      .brain-admin-settings__icon-grid, .brain-admin-settings__color-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; margin-top: 17px; }
+      .brain-admin-settings__color-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .brain-admin-field { display: block; margin-bottom: 15px; }
       .brain-admin-field:last-child { margin-bottom: 0; }
       .brain-admin-field__label { display: block; margin-bottom: 6px; color: #62626d; font-size: 11px; font-weight: 600; }
@@ -659,13 +709,15 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         border: 1px solid #d9d8d1;
         border-radius: 8px;
         outline: 0;
-        background: #fff;
+        background: var(--white);
         color: var(--ink);
         font: 13px/19px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       .brain-admin-field textarea { resize: vertical; }
       .brain-admin-field input:focus, .brain-admin-field textarea:focus { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(255,0,143,.08); }
       .brain-admin-field__help { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 15px; }
+      .brain-admin-color-field { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 8px; }
+      .brain-admin-color-field input[type="color"] { width: 42px; height: 41px; padding: 3px; cursor: pointer; }
 
       .brain-dashboard a { color: var(--pink) !important; }
 
@@ -695,12 +747,14 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         .brain-admin-stats-grid { grid-template-columns: 1fr 1fr; }
         .brain-admin-settings__grid { grid-template-columns: 1fr; }
         .brain-admin-settings__card--wide { grid-column: span 1; }
+        .brain-admin-settings__color-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
 
       @media (max-width: 430px) {
         .brain-dashboard__sidebar h1 { max-width: 145px; }
         .brain-dashboard__back { max-width: 122px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .brain-admin-stats-grid { grid-template-columns: 1fr; }
+        .brain-admin-settings__icon-grid, .brain-admin-settings__color-grid { grid-template-columns: 1fr; }
       }
     `}</style>
   </div>
