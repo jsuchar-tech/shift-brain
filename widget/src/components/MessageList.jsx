@@ -60,6 +60,7 @@ export default function MessageList({ messages, isLoading, fontSize, scrollToBot
           display: flex;
           flex-direction: column;
           justify-content: flex-start;
+          padding-bottom: 24px;
         }
 
         .brain-message-list__loading { width: 100%; padding: 4px 0 20px; }

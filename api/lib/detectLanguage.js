@@ -4,13 +4,13 @@
 // codes so the admin dashboard can display any language dynamically.
 
 const WORD_LISTS = {
-  en: 'the and you your what how why where when can could would should with from for this that are was were have has do does not into about please hello thanks thank'.split(' '),
+  en: 'the a an and or you your what how why where when who which can could would should with from for to in on at by this that these those is are was were be been being have has had do does did not into about please hello thanks thank need want help tell show give make find use working'.split(' '),
   es: 'el la los las un una unos unas y o de del que qué como cómo cuál cuáles donde dónde está están para por porque gracias hola necesito quiero puedo ayuda con esto'.split(' '),
   fr: 'le la les un une des et ou de du que quoi comment quel quelle où est sont pour par parce merci bonjour besoin je vous pouvez aide avec dans pas'.split(' '),
   pt: 'o a os as um uma uns umas e ou de do da que como quantos quantas qual quais onde está estão para por porque obrigado obrigada olá preciso quero posso ajuda não são com'.split(' '),
   de: 'der die das den dem des ein eine einer einen und oder von zu zum zur was wie warum wo wann ist sind für mit nicht danke hallo bitte ich sie'.split(' '),
   it: 'il lo la i gli le un una e o di del della che cosa come quale dove è sono per perché grazie ciao bisogno voglio posso aiuto con non'.split(' '),
-  nl: 'de het een en of van voor met wat hoe waarom waar wanneer is zijn niet dank hallo bedankt ik jij je jullie'.split(' '),
+  nl: 'de het een en of van voor met wat hoe waarom waar wanneer is zijn niet dank hallo bedankt ik jij je jullie dit dat deze die als maar ook kan kun kunt mij mijn jouw heeft hebben wordt worden werkt helpen graag'.split(' '),
   pl: 'i oraz lub nie jest są że jak gdzie kiedy dlaczego dla z ze na do czy dziękuję cześć proszę potrzebuję chcę mogę pomoc'.split(' '),
   cs: 'a nebo ale není je jsou že jak kde kdy proč pro s se na do co děkuji ahoj prosím potřebuji chci můžu pomoc'.split(' '),
   sk: 'a alebo ale nie je sú že ako kde kedy prečo pre s so na do čo ďakujem ahoj prosím potrebujem chcem môžem môžeš môžete pomoc pomôž pomôže spraviť urobiť povedať odpoveď otázka otázku mám máš máme váš vaša moje som sme bude bolo ktorý ktorá ktoré ešte tiež veľmi teraz'.split(' '),
@@ -56,6 +56,14 @@ const COMPILED = Object.fromEntries(
   Object.entries(WORD_LISTS).map(([lang, words]) => [lang, new Set(words)])
 )
 
+const WORD_OWNERS = Object.entries(COMPILED).reduce((owners, [lang, dictionary]) => {
+  dictionary.forEach(word => {
+    if (!owners.has(word)) owners.set(word, [])
+    owners.get(word).push(lang)
+  })
+  return owners
+}, new Map())
+
 function hasScript(text, start, end) {
   return [...text].some(char => {
     const code = char.codePointAt(0)
@@ -97,9 +105,14 @@ function normalizeWords(text) {
 function scoreLanguages(words) {
   const scores = Object.fromEntries(Object.keys(COMPILED).map(lang => [lang, 0]))
   for (const word of words) {
-    for (const [lang, dictionary] of Object.entries(COMPILED)) {
-      if (dictionary.has(word)) scores[lang]++
-    }
+    const owners = WORD_OWNERS.get(word) || []
+    if (owners.length === 0) continue
+
+    // A word found in only one dictionary is meaningful evidence. Words such
+    // as "is", "of", "de" and "a" occur across several languages and must
+    // not be allowed to decide a conversation language on their own.
+    const weight = owners.length === 1 ? 1.5 : 1 / owners.length
+    owners.forEach(lang => { scores[lang] += weight })
   }
   return Object.entries(scores).sort((a, b) => b[1] - a[1])
 }
@@ -126,9 +139,8 @@ export function detectLanguage(text, fallback = 'en') {
     return scriptLanguage
   }
 
-  if (topScore === 0) return fallback
-  if (topScore === 1 && words.length <= 3) return fallback
-  if (topScore === secondScore && topScore < 3) return fallback
+  if (topScore < 1.25) return fallback
+  if (topScore - secondScore < .55 && topScore < 3) return fallback
 
   return topLang
 }

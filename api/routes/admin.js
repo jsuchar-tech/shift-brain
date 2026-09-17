@@ -454,7 +454,9 @@ router.get('/stats', async (req, res) => {
 
     const langCount = {}
     firstQuestionByConversation.forEach(m => {
-      const language = detectLanguage(m.content, m.language || 'und').toLowerCase()
+      // Re-detect from the first question rather than trusting the legacy
+      // per-message value, which may contain an earlier false Dutch match.
+      const language = detectLanguage(m.content, 'en').toLowerCase()
       langCount[language] = (langCount[language] || 0) + 1
     })
 

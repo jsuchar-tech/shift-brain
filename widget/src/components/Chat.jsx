@@ -142,6 +142,7 @@ export default function Chat({ onOpenDashboard, settings }) {
         open={sidebarOpen}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(collapsed => !collapsed)}
+        onClose={() => setSidebarOpen(false)}
         onLogout={handleLogout}
       />
 
@@ -189,7 +190,7 @@ export default function Chat({ onOpenDashboard, settings }) {
 
         {showWelcome ? (
           <section className="brain-chat__welcome">
-            <img className="brain-chat__brain" src={ASSETS.brain} alt="" />
+            <img className="brain-chat__brain" src={settings?.brain_icon_url || ASSETS.brain} alt="" />
             <h1>{welcomeCopy}</h1>
           </section>
         ) : (
@@ -270,7 +271,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           padding: 0;
           border: 0;
           border-radius: 50%;
-          background: #fff;
+          background: var(--cream);
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
           cursor: pointer;
         }
@@ -302,7 +303,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           color: var(--muted);
           font-size: 10px;
           font-weight: 600;
-          background: #fff;
+          background: var(--cream);
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
         }
 
@@ -340,7 +341,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           border: 1px solid var(--pink);
           border-radius: 999px;
           padding: 6px 12px;
-          background: #fff;
+          background: var(--cream);
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
           color: var(--pink);
           font-size: 11px;
@@ -404,7 +405,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           overscroll-behavior: contain;
           scrollbar-gutter: stable;
           padding-top: 58px;
-          padding-bottom: 24px;
+          padding-bottom: 48px;
         }
 
         .brain-chat .brain-message-list__content {
@@ -420,7 +421,8 @@ export default function Chat({ onOpenDashboard, settings }) {
           width: 100%;
           padding: 16px 24px 40px;
           background: var(--cream);
-          border-top: 0;
+          border-top: 1px solid rgba(222, 221, 213, .72);
+          box-shadow: 0 -18px 28px var(--cream);
         }
 
         .brain-chat__composer.is-welcome {
@@ -430,6 +432,7 @@ export default function Chat({ onOpenDashboard, settings }) {
           padding-top: 0;
           padding-bottom: 0;
           border-top-color: transparent;
+          box-shadow: none;
         }
 
         .brain-chat__main:not(.is-sidebar-collapsed) .brain-chat__composer.is-welcome .brain-input {
@@ -444,26 +447,21 @@ export default function Chat({ onOpenDashboard, settings }) {
           width: min(450px, calc(100% - 60px));
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .brain-chat .brain-message-list { padding-top: 97px; }
           .brain-chat__main.is-sidebar-collapsed .brain-chat__top-controls {
-            left: clamp(50px, calc(50px + (100vw - 768px) * .2765), 180.5px);
+            left: 60px;
             right: clamp(50px, calc(50px + (100vw - 768px) * .2765), 180.5px);
           }
         }
 
-        @media (max-width: 767px) {
-          .brain-chat__main { border-top: 0; min-height: 0; }
-          .brain-chat .brain-message-list {
-            padding-top: 52px;
-            padding-bottom: 18px;
-          }
-          .brain-chat__composer { padding: 12px 30px 38px; }
+        @media (max-width: 1023px) {
+          .brain-chat__main { min-height: 0; }
           .brain-chat__sidebar-backdrop {
             position: absolute;
             z-index: 9;
             inset: 0;
-            background: rgba(11,11,45,.12);
+            background: transparent;
             display: none;
           }
           .brain-chat__sidebar-backdrop.is-open { display: block; }
@@ -480,7 +478,16 @@ export default function Chat({ onOpenDashboard, settings }) {
           }
           .brain-chat__sidebar-reopen { display: none; }
           .brain-chat__controls { gap: 8px; }
-          .brain-chat__controls .brain-chat__dashboard { display: none; }
+        }
+
+        @media (max-width: 767px) {
+          .brain-chat__main { border-top: 0; }
+          .brain-chat .brain-message-list {
+            padding-top: 52px;
+            padding-bottom: 32px;
+          }
+          .brain-chat__composer { padding: 12px 30px 38px; }
+          .brain-chat__dashboard { padding-right: 10px; padding-left: 10px; font-size: 10px; }
           .brain-chat__welcome h1 {
             width: 100%;
             font-size: 22px;

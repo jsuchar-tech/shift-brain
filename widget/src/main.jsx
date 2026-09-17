@@ -8,13 +8,13 @@ function mountWidget() {
 
   const shadow = hostEl.attachShadow({ mode: 'open' })
   const container = document.createElement('div')
-  container.style.cssText = 'width: 100%; height: 100%; min-height: 0; overflow: hidden;'
+  container.style.cssText = 'width: 100%; height: 100%; min-height: 0; overflow: visible;'
   shadow.appendChild(container)
 
   const style = document.createElement('style')
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    :host { display: block; width: 100%; height: 100%; min-height: 0; overflow: hidden; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    :host { display: block; width: 100%; height: 100%; min-height: 0; overflow: visible; font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     button, input, textarea, select { font-family: inherit; }
     a { text-decoration: none; }
   `

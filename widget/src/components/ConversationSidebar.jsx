@@ -27,6 +27,7 @@ export default function ConversationSidebar({
   open = false,
   collapsed = false,
   onToggleCollapse,
+  onClose,
   onLogout
 }) {
   const [search, setSearch] = useState('')
@@ -52,6 +53,14 @@ export default function ConversationSidebar({
 
   return (
     <aside className={`brain-sidebar ${open ? 'is-open' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
+      <button
+        className="brain-sidebar__mobile-close"
+        type="button"
+        onClick={onClose}
+        aria-label="Close chat history"
+      >
+        <span className="brain-sidebar__arrow" aria-hidden="true" />
+      </button>
       <div className="brain-sidebar__content">
         <div className="brain-sidebar__title">Your chat history</div>
         <div className="brain-sidebar__tools">
@@ -88,7 +97,7 @@ export default function ConversationSidebar({
               title={conv.title || 'Untitled conversation'}
             >
               <span className="brain-sidebar__item-title">{conv.title || 'Untitled conversation'}</span>
-              <time dateTime={conv.updated_at || conv.created_at}>
+              <time className="brain-sidebar__time" dateTime={conv.updated_at || conv.created_at}>
                 {relativeTime(conv.updated_at || conv.created_at, now)}
               </time>
             </button>
@@ -120,8 +129,9 @@ export default function ConversationSidebar({
           display: flex;
           flex-direction: column;
           background: var(--cream, #fdfbef);
+          border-top: 1px solid #deddd5;
           border-right: 1px solid #deddd5;
-          transition: flex-basis .22s ease, width .22s ease, transform .2s ease;
+          transition: flex-basis .38s cubic-bezier(.22, 1, .36, 1), width .38s cubic-bezier(.22, 1, .36, 1), transform .38s cubic-bezier(.22, 1, .36, 1);
         }
 
         .brain-sidebar.is-collapsed {
@@ -140,7 +150,7 @@ export default function ConversationSidebar({
           overflow: hidden;
           padding: 16px 0 0;
           opacity: 1;
-          transition: opacity .12s ease;
+          transition: opacity .2s ease .08s;
         }
 
         .brain-sidebar.is-collapsed .brain-sidebar__content,
@@ -157,7 +167,7 @@ export default function ConversationSidebar({
         }
 
         .brain-sidebar__tools {
-          display: flex;
+          display: none;
           flex-direction: column;
           gap: 10px;
           padding: 15px clamp(18px, calc(18px + (100vw - 768px) * .038), 36px) 7px;
@@ -276,7 +286,7 @@ export default function ConversationSidebar({
 
         .brain-sidebar.is-collapsed .brain-sidebar__collapse {
           right: auto;
-          left: clamp(50px, calc(50px + (100vw - 768px) * .2765), 180.5px);
+          left: 14px;
         }
 
         .brain-sidebar__list {
@@ -329,6 +339,7 @@ export default function ConversationSidebar({
         }
 
         .brain-sidebar__item time {
+          display: none;
           flex: 0 0 auto;
           color: #b7b7b7;
           font-size: 10px;
@@ -352,6 +363,8 @@ export default function ConversationSidebar({
           text-align: left;
           cursor: pointer;
         }
+
+        .brain-sidebar__mobile-close { display: none; }
 
         .brain-sidebar__reopen {
           position: absolute;
@@ -377,27 +390,73 @@ export default function ConversationSidebar({
           transform: rotate(180deg);
         }
 
-        @media (max-width: 767px) {
+        @media (max-width: 1023px) {
           .brain-sidebar {
             position: absolute;
             left: 0;
             top: 0;
             bottom: 0;
-            width: min(82vw, 300px);
-            flex-basis: min(82vw, 300px);
-            transform: translateX(-102%);
-            box-shadow: 8px 0 30px rgba(0,0,0,.08);
-            transition: transform .2s ease;
-            border-right: 1px solid #deddd5;
+            width: 100%;
+            max-width: none;
+            flex-basis: 100%;
+            transform: translate3d(-100%, 0, 0);
+            box-shadow: none;
+            transition: transform .38s cubic-bezier(.22, 1, .36, 1), visibility 0s linear .38s;
+            border-right: 0;
+            visibility: hidden;
+            z-index: 30;
           }
-          .brain-sidebar.is-open { transform: translateX(0); }
-          .brain-sidebar.is-collapsed { width: min(82vw, 300px); flex-basis: min(82vw, 300px); }
+          .brain-sidebar.is-open { transform: translate3d(0, 0, 0); visibility: visible; transition-delay: 0s; }
+          .brain-sidebar.is-collapsed { width: 100%; flex-basis: 100%; }
           .brain-sidebar.is-collapsed .brain-sidebar__content,
           .brain-sidebar.is-collapsed .brain-sidebar__logout { opacity: 1; pointer-events: auto; }
-          .brain-sidebar__title { margin-left: 24px; }
-          .brain-sidebar__tools { padding-right: 24px; padding-left: 24px; }
-          .brain-sidebar__list { padding-right: 18px; padding-left: 18px; }
+          .brain-sidebar__title { margin-left: 30px; }
+          .brain-sidebar__list { padding-right: 30px; padding-left: 30px; }
           .brain-sidebar__collapse { display: none; }
+          .brain-sidebar__mobile-close {
+            position: absolute;
+            z-index: 30;
+            top: 14px;
+            right: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 33px;
+            height: 33px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
+            cursor: pointer;
+          }
+          .brain-sidebar__mobile-close .brain-sidebar__arrow { margin-left: 4px; }
+        }
+
+        @media (max-width: 767px) {
+          .brain-sidebar__content { padding-top: 14px; }
+          .brain-sidebar__title { margin-left: 30px; padding-right: 58px; line-height: 34px; }
+          .brain-sidebar__tools {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            padding: 18px 30px 9px;
+          }
+          .brain-sidebar__search { min-width: 0; height: 42px; }
+          .brain-sidebar__new {
+            width: auto;
+            min-width: 142px;
+            min-height: 42px;
+            padding: 0 15px;
+          }
+          .brain-sidebar__list { margin-top: 13px; padding-right: 30px; padding-left: 30px; }
+          .brain-sidebar__item { min-height: 46px; }
+          .brain-sidebar__item time { display: block; }
+        }
+
+        @media (max-width: 440px) {
+          .brain-sidebar__tools { grid-template-columns: 1fr; }
+          .brain-sidebar__new { width: 100%; }
         }
       `}</style>
     </aside>

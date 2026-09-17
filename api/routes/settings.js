@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const DEFAULT_SETTINGS = {
-  logo_url: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
+  brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
   login_heading: 'Hello there!',
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
@@ -22,7 +22,8 @@ const DEFAULT_SETTINGS = {
   chat_welcome: 'Let’s start building your movement today!'
 }
 
-const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => key !== 'logo_url')
+const URL_FIELDS = ['brain_icon_url']
+const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => !URL_FIELDS.includes(key))
 
 function cleanSettings(input = {}) {
   const next = { ...DEFAULT_SETTINGS }
@@ -34,13 +35,13 @@ function cleanSettings(input = {}) {
     next[key] = value
   }
 
-  const logo = next.logo_url.trim()
-  if (logo) {
+  for (const key of URL_FIELDS) {
+    const value = next[key].trim()
     try {
-      const url = new URL(logo)
-      if (!['http:', 'https:'].includes(url.protocol)) next.logo_url = DEFAULT_SETTINGS.logo_url
+      const url = new URL(value)
+      if (!['http:', 'https:'].includes(url.protocol)) next[key] = DEFAULT_SETTINGS[key]
     } catch {
-      next.logo_url = DEFAULT_SETTINGS.logo_url
+      next[key] = DEFAULT_SETTINGS[key]
     }
   }
 

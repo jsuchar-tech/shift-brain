@@ -14,7 +14,7 @@ import { API_URL } from './lib/api'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 const DEFAULT_SETTINGS = {
-  logo_url: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
+  brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
   login_heading: 'Hello there!',
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
@@ -87,7 +87,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
   return (
     <div className="brain-login">
       <main className="brain-login__content">
-        <img src={LOGIN_ASSETS.brain} alt="" className="brain-login__brain" />
+        <img src={copy.brain_icon_url || LOGIN_ASSETS.brain} alt="" className="brain-login__brain" />
         <h1>{copy.login_heading}</h1>
 
         <div className="brain-login__intro">
@@ -145,10 +145,10 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           --pink: #ff008f;
           --muted: #b7b7b7;
           position: relative;
-          height: 100%;
-          min-height: 0;
+          height: auto;
+          min-height: 100%;
           width: 100%;
-          overflow-y: auto;
+          overflow: visible;
           background: var(--cream);
           color: #000;
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -269,28 +269,19 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           width: 103px;
           height: 47px;
           padding: 0;
-          border: 0;
-          background: transparent;
+          border: 2px solid var(--ink);
+          border-radius: 50px;
+          background: var(--pink);
+          box-shadow: 4px 4px var(--ink);
+          color: #fff;
+          transform: rotate(-3deg);
+          transition: background-color 300ms ease-in-out, transform 300ms ease-in-out, box-shadow 300ms ease-in-out;
           cursor: pointer;
         }
 
         .brain-login__submit::before,
         .brain-login__submit::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: 20px;
-          transform: rotate(-6deg) skewX(-2deg);
-        }
-
-        .brain-login__submit::before {
-          background: var(--ink);
-          transform: translate(5px, 6px) rotate(-6deg) skewX(-2deg);
-        }
-
-        .brain-login__submit::after {
-          background: var(--pink);
-          border: 2px solid var(--ink);
+          display: none;
         }
 
         .brain-login__submit span {
@@ -299,9 +290,11 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           display: block;
           color: #fff;
           font: 700 18px/47px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          transform: rotate(-6deg) skewX(-2deg);
+          transform: none;
         }
 
+        .brain-login__submit:hover:not(:disabled) { background: #302798; transform: rotate(0deg); }
+        .brain-login__submit:active:not(:disabled) { transform: translate(2px, 2px) rotate(0deg); box-shadow: 2px 2px var(--ink); }
         .brain-login__submit:disabled { opacity: .65; cursor: default; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
@@ -348,11 +341,11 @@ function SignedOutFlow({ settings }) {
   const [view, setView] = useState('login')
 
   if (view === 'create-account') {
-    return <CreateAccountScreen onBack={() => setView('login')} />
+    return <CreateAccountScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} />
   }
 
   if (view === 'forgot-password') {
-    return <ForgotPasswordScreen onBack={() => setView('login')} />
+    return <ForgotPasswordScreen onBack={() => setView('login')} brainIcon={settings?.brain_icon_url} />
   }
 
   return (

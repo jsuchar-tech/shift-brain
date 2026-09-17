@@ -306,7 +306,7 @@ function StatsTab({ getToken }) {
 }
 
 const DEFAULT_SETTINGS = {
-  logo_url: 'https://www.figma.com/api/mcp/asset/44867e92-d100-4ce0-825a-f3eb32f0a8d0.png',
+  brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
   login_heading: 'Hello there!',
   login_intro: 'I’m SHIFT Brain (BETA), a Fun (AI)dult that’s been trained on all the resources, tools and knowledge gathered over the last 6 years.',
   login_emphasis: 'Ask me anything related to SHIFT!',
@@ -387,9 +387,9 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
 
     <div className="brain-admin-settings__grid">
     <section className="brain-admin-settings__card">
-      <h3>Logo</h3>
-      <SettingsField label="Logo URL" value={form.logo_url} onChange={v => update('logo_url', v)} help="Use a public HTTPS image URL. Leave empty to use the default SHIFT logo." />
-      {form.logo_url && <img src={form.logo_url} alt="Logo preview" style={{ width: '48px', height: '39px', objectFit: 'contain', display: 'block' }} onError={e => { e.currentTarget.style.opacity = '.25' }} />}
+      <h3>Brain icon</h3>
+      <SettingsField label="Brain icon URL" value={form.brain_icon_url} onChange={v => update('brain_icon_url', v)} help="Use a public HTTPS image URL. It appears on the login, account and chat welcome screens." />
+      {form.brain_icon_url && <img src={form.brain_icon_url} alt="Brain icon preview" style={{ width: '91px', height: '81px', objectFit: 'contain', display: 'block' }} onError={e => { e.currentTarget.style.opacity = '.25' }} />}
     </section>
 
     <section className="brain-admin-settings__card brain-admin-settings__card--wide">
@@ -575,7 +575,7 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         overflow-y: auto;
         overscroll-behavior: contain;
         padding: clamp(20px, 3.2vw, 42px) clamp(20px, 4vw, 54px) 48px;
-        background: #f8f6ed;
+        background: var(--cream);
       }
       .brain-dashboard__panel {
         width: 100%;
@@ -585,7 +585,7 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         padding: clamp(20px, 2.6vw, 34px);
         border: 1px solid rgba(222,221,213,.8);
         border-radius: 14px;
-        background: #fff;
+        background: var(--cream);
         box-shadow: 3px 5px 18px -6px rgba(11,11,45,.08);
       }
 
@@ -627,7 +627,7 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
       .brain-admin-conversation { display: block; width: 100%; margin: 0 0 5px; padding: 11px 13px; border: 1px solid transparent; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
       .brain-admin-conversation:hover { background: #faf9f3; }
       .brain-admin-conversation.is-active { border-color: #ffc3e3; background: #fff2f9; }
-      .brain-admin-thread-header { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin: 0 0 16px; padding: 0 0 14px; border-bottom: 1px solid #ecebe4; background: #fff; }
+      .brain-admin-thread-header { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin: 0 0 16px; padding: 0 0 14px; border-bottom: 1px solid #ecebe4; background: var(--cream); }
 
       .brain-admin-stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 25px; }
       .brain-admin-stat { min-width: 0; padding: 19px 20px; border: 1px solid #ecebe4; border-radius: 11px; background: #fdfcf7; }

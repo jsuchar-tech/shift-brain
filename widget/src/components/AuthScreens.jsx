@@ -9,11 +9,11 @@ function clerkError(error, fallback) {
     || fallback
 }
 
-function AuthLayout({ title, subtitle, children, modifier = '', help = null }) {
+function AuthLayout({ title, subtitle, children, modifier = '', help = null, brainIcon }) {
   return (
     <div className={`brain-auth ${modifier}`}>
       <main className="brain-auth__content">
-        <img className="brain-auth__brain" src={BRAIN_ASSET} alt="" />
+        <img className="brain-auth__brain" src={brainIcon || BRAIN_ASSET} alt="" />
         <h1>{title}</h1>
         {subtitle && <p className="brain-auth__subtitle">{subtitle}</p>}
         {children}
@@ -27,10 +27,9 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null }) {
           --pink: #ff008f;
           --muted: #b7b7b7;
           width: 100%;
-          height: 100%;
-          min-height: 0;
-          overflow-y: auto;
-          overscroll-behavior: contain;
+          height: auto;
+          min-height: 100%;
+          overflow: visible;
           background: var(--cream);
           color: var(--ink);
           font-family: Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -224,7 +223,7 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null }) {
   )
 }
 
-export function CreateAccountScreen({ onBack }) {
+export function CreateAccountScreen({ onBack, brainIcon }) {
   const { isLoaded, signUp, setActive } = useSignUp()
   const [stage, setStage] = useState('details')
   const [fullName, setFullName] = useState('')
@@ -283,6 +282,7 @@ export function CreateAccountScreen({ onBack }) {
       title={stage === 'verify' ? 'Verify your email' : 'Create an account'}
       subtitle={stage === 'verify' ? `Enter the verification code sent to ${emailAddress}.` : ''}
       modifier="brain-auth--signup"
+      brainIcon={brainIcon}
     >
       <form className="brain-auth__form" onSubmit={stage === 'verify' ? verifyAccount : createAccount}>
         {stage === 'details' ? (
@@ -310,7 +310,7 @@ export function CreateAccountScreen({ onBack }) {
   )
 }
 
-export function ForgotPasswordScreen({ onBack }) {
+export function ForgotPasswordScreen({ onBack, brainIcon }) {
   const { isLoaded, signIn, setActive } = useSignIn()
   const [stage, setStage] = useState('request')
   const [emailAddress, setEmailAddress] = useState('')
@@ -374,6 +374,7 @@ export function ForgotPasswordScreen({ onBack }) {
         ? ''
         : `Enter the code sent to ${emailAddress} and choose a new password.`}
       modifier="brain-auth--forgot"
+      brainIcon={brainIcon}
       help={stage === 'request' ? (
         <p className="brain-auth__help">
           If you are still having problems, just send us an email and we will sort it out for you!{' '}
