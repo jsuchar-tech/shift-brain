@@ -110,7 +110,11 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
   const { isLoaded, signIn, setActive } = useSignIn()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [verification, setVerification] = useState(null)
+  const [verificationCode, setVerificationCode] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isResending, setIsResending] = useState(false)
+  const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
   if (!isLoaded) return null
@@ -128,13 +132,92 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
         return
       }
 
-      setError('Additional verification is required to finish signing in.')
+      if (result.status === 'needs_second_factor') {
+        const emailCodeFactor = result.supportedSecondFactors?.find(
+          factor => factor.strategy === 'email_code'
+        )
+
+        if (!emailCodeFactor) {
+          setError('This account requires a verification method that is not available on this screen. Please contact an administrator.')
+          return
+        }
+
+        await signIn.prepareSecondFactor({
+          strategy: 'email_code',
+          emailAddressId: emailCodeFactor.emailAddressId
+        })
+        setVerification({
+          emailAddressId: emailCodeFactor.emailAddressId,
+          safeIdentifier: emailCodeFactor.safeIdentifier || identifier
+        })
+        setVerificationCode('')
+        setNotice('A verification code has been sent to your email.')
+        return
+      }
+
+      setError(`Sign-in could not be completed (${result.status || 'unknown status'}). Please try again.`)
     } catch (err) {
       const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message
       setError(message || 'Unable to log in. Please check your details and try again.')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  async function handleVerification(event) {
+    event.preventDefault()
+    if (!verificationCode.trim()) return
+
+    setError('')
+    setNotice('')
+    setIsSubmitting(true)
+
+    try {
+      const result = await signIn.attemptSecondFactor({
+        strategy: 'email_code',
+        code: verificationCode.trim()
+      })
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId })
+        return
+      }
+
+      setError('Verification is not complete. Please request a new code and try again.')
+    } catch (err) {
+      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message
+      setError(message || 'The verification code is invalid or has expired. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function resendVerificationCode() {
+    if (!verification) return
+
+    setError('')
+    setNotice('')
+    setIsResending(true)
+
+    try {
+      await signIn.prepareSecondFactor({
+        strategy: 'email_code',
+        emailAddressId: verification.emailAddressId
+      })
+      setNotice('A new verification code has been sent.')
+    } catch (err) {
+      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message
+      setError(message || 'Unable to send a new code. Please try again.')
+    } finally {
+      setIsResending(false)
+    }
+  }
+
+  function returnToLogin() {
+    setVerification(null)
+    setVerificationCode('')
+    setNotice('')
+    setError('')
   }
 
   const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
@@ -152,14 +235,39 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
     }}>
       <main className="brain-login__content">
         <img src={copy.brain_icon_url || DEFAULT_SETTINGS.brain_icon_url} alt="" className="brain-login__brain" />
-        <h1>{copy.login_heading}</h1>
+        <h1>{verification ? 'Check your email' : copy.login_heading}</h1>
 
         <div className="brain-login__intro">
-          <p>{copy.login_intro}</p>
-          <p className="brain-login__intro-strong">{copy.login_emphasis}</p>
+          {verification ? (
+            <>
+              <p>For your security, enter the verification code Clerk sent to:</p>
+              <p className="brain-login__intro-strong">{verification.safeIdentifier}</p>
+            </>
+          ) : (
+            <>
+              <p>{copy.login_intro}</p>
+              <p className="brain-login__intro-strong">{copy.login_emphasis}</p>
+            </>
+          )}
         </div>
 
-        <form className="brain-login__form" onSubmit={handleSubmit}>
+        <form className={`brain-login__form ${verification ? 'is-verification' : ''}`} onSubmit={verification ? handleVerification : handleSubmit}>
+          {verification ? (
+            <label className="brain-login__field">
+              <span className="sr-only">Verification code</span>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={event => setVerificationCode(event.target.value)}
+                placeholder="Verification code"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                autoFocus
+                required
+              />
+            </label>
+          ) : (
+            <>
           <label className="brain-login__field">
             <span className="sr-only">Email</span>
             <input
@@ -190,13 +298,25 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
               {copy.login_forgot_password}
             </button>
           </label>
+            </>
+          )}
 
           {error && <p className="brain-login__error" role="alert">{error}</p>}
+          {notice && <p className="brain-login__notice" role="status">{notice}</p>}
 
           <div className="brain-login__actions">
-            <button type="button" className="brain-login__create" onClick={onCreateAccount}>{copy.login_create_account}</button>
+            {verification ? (
+              <div className="brain-login__verification-links">
+                <button type="button" className="brain-login__create" onClick={returnToLogin}>Back to login</button>
+                <button type="button" className="brain-login__create" onClick={resendVerificationCode} disabled={isResending}>
+                  {isResending ? 'Sending…' : 'Resend code'}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="brain-login__create" onClick={onCreateAccount}>{copy.login_create_account}</button>
+            )}
             <button className="brain-login__submit" type="submit" disabled={isSubmitting}>
-              <span>{isSubmitting ? 'LOGGING IN' : copy.login_button}</span>
+              <span>{isSubmitting ? (verification ? 'VERIFYING' : 'LOGGING IN') : (verification ? 'VERIFY' : copy.login_button)}</span>
             </button>
           </div>
         </form>
@@ -308,6 +428,13 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           line-height: 18px;
         }
 
+        .brain-login__notice {
+          margin: 10px 0 0;
+          color: var(--ink);
+          font-size: 12px;
+          line-height: 18px;
+        }
+
         .brain-login__actions {
           display: flex;
           align-items: center;
@@ -325,6 +452,12 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           cursor: pointer;
           transition: color 300ms ease-in-out, transform 300ms ease-in-out;
         }
+
+        .brain-login__verification-links { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+        .brain-login__create:disabled { opacity: .55; cursor: default; transform: none; }
+
+        .brain-login__form.is-verification .brain-login__submit { width: 112px; }
+        .brain-login__form.is-verification .brain-login__submit span { font-size: 15px; }
 
         .brain-login__forgot:hover,
         .brain-login__create:hover { color: var(--purple); transform: translateY(-1px); }
