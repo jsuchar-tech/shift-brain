@@ -3,6 +3,17 @@ import { useSignIn, useSignUp } from '@clerk/clerk-react'
 
 const BRAIN_ASSET = 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png'
 
+const COUNTRY_CODES = 'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(' ')
+
+const COUNTRIES = (() => {
+  const names = typeof Intl !== 'undefined' && Intl.DisplayNames
+    ? new Intl.DisplayNames(['en'], { type: 'region' })
+    : null
+  return COUNTRY_CODES
+    .map(code => names?.of(code) || code)
+    .sort((a, b) => a.localeCompare(b))
+})()
+
 function clerkError(error, fallback) {
   return error?.errors?.[0]?.longMessage
     || error?.errors?.[0]?.message
@@ -96,7 +107,8 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           border-bottom: 1px solid var(--ink);
         }
 
-        .brain-auth__field input {
+        .brain-auth__field input,
+        .brain-auth__field select {
           width: 100%;
           height: 39px;
           padding: 0;
@@ -106,6 +118,16 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           color: var(--ink);
           font: 500 15px/34px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
+
+        .brain-auth__field select {
+          appearance: none;
+          cursor: pointer;
+          background-image: linear-gradient(45deg, transparent 50%, var(--pink) 50%), linear-gradient(135deg, var(--pink) 50%, transparent 50%);
+          background-position: calc(100% - 12px) 17px, calc(100% - 7px) 17px;
+          background-size: 5px 5px, 5px 5px;
+          background-repeat: no-repeat;
+        }
+        .brain-auth__field select:invalid { color: var(--muted); }
 
         .brain-auth__field input::placeholder { color: var(--muted); opacity: 1; }
         .brain-auth__field input:focus::placeholder { color: #888; }
@@ -201,7 +223,7 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           .brain-auth__brain { top: 28px; }
           .brain-auth h1 { top: 156px; font-size: 30px; line-height: 36px; }
           .brain-auth__subtitle { top: 210px; }
-          .brain-auth__field input { font-size: 18px; }
+          .brain-auth__field input, .brain-auth__field select { font-size: 18px; }
           .brain-auth--signup .brain-auth__form { top: 262px; }
           .brain-auth--forgot .brain-auth__form { top: 337px; }
           .brain-auth__help { top: 555px; }
@@ -215,7 +237,7 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           .brain-auth--signup .brain-auth__form { top: 255px; }
           .brain-auth--forgot .brain-auth__form { top: 337px; }
           .brain-auth__help { top: 583px; width: min(330px, calc(100% - 60px)); font-size: 11px; line-height: 20px; }
-          .brain-auth__field input { font-size: 15px; }
+          .brain-auth__field input, .brain-auth__field select { font-size: 15px; }
           .brain-auth__actions { gap: 24px; }
         }
       `}</style>
@@ -289,7 +311,7 @@ export function CreateAccountScreen({ onBack, brainIcon, theme }) {
         {stage === 'details' ? (
           <>
             <label className="brain-auth__field"><span className="sr-only">Name</span><input value={fullName} onChange={event => setFullName(event.target.value)} placeholder="Name" autoComplete="name" required /></label>
-            <label className="brain-auth__field"><span className="sr-only">Country</span><input value={country} onChange={event => setCountry(event.target.value)} placeholder="Country" autoComplete="country-name" required /></label>
+            <label className="brain-auth__field"><span className="sr-only">Country</span><select value={country} onChange={event => setCountry(event.target.value)} autoComplete="country-name" required><option value="" disabled>Country</option>{COUNTRIES.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
             <label className="brain-auth__field"><span className="sr-only">Email</span><input type="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Email" autoComplete="email" required /></label>
             <label className="brain-auth__field"><span className="sr-only">Password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Password" autoComplete="new-password" required /></label>
             <div id="clerk-captcha" className="brain-auth__captcha" />
@@ -386,7 +408,7 @@ export function ForgotPasswordScreen({ onBack, brainIcon, theme }) {
     >
       <form className="brain-auth__form" onSubmit={stage === 'request' ? sendResetCode : resetPassword}>
         {stage === 'request' ? (
-          <label className="brain-auth__field"><span className="sr-only">Name or email</span><input type="text" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Name" autoComplete="username" required /></label>
+          <label className="brain-auth__field"><span className="sr-only">Email</span><input type="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="Email" autoComplete="email" required /></label>
         ) : (
           <>
             <label className="brain-auth__field"><span className="sr-only">Reset code</span><input value={code} onChange={event => setCode(event.target.value)} placeholder="Reset code" inputMode="numeric" autoComplete="one-time-code" required /></label>

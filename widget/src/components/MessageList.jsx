@@ -30,7 +30,7 @@ export default function MessageList({ messages, isLoading, fontSize, scrollToBot
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: '#ff008f',
+                  background: 'var(--pink, #ff008f)',
                   animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`
                 }} />
               ))}

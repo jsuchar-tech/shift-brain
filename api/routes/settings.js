@@ -8,6 +8,11 @@ const DEFAULT_SETTINGS = {
   plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
   send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
   send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
+  sidebar_open_icon_url: '',
+  sidebar_close_icon_url: '',
+  search_icon_url: '',
+  upload_file_icon_url: '',
+  send_message_icon_url: '',
   color_cream: '#fdfbef',
   color_ink: '#0b0b2d',
   color_pink: '#ff008f',
@@ -39,7 +44,7 @@ const DEFAULT_SETTINGS = {
   chat_welcome: 'Let’s start building your movement today!'
 }
 
-const URL_FIELDS = ['brain_icon_url', 'plus_base_icon_url', 'plus_glyph_icon_url', 'send_base_icon_url', 'send_glyph_icon_url']
+const URL_FIELDS = ['brain_icon_url', 'plus_base_icon_url', 'plus_glyph_icon_url', 'send_base_icon_url', 'send_glyph_icon_url', 'sidebar_open_icon_url', 'sidebar_close_icon_url', 'search_icon_url', 'upload_file_icon_url', 'send_message_icon_url']
 const COLOR_FIELDS = ['color_cream', 'color_ink', 'color_pink', 'color_purple', 'color_muted', 'color_yellow', 'color_white', 'color_line', 'color_soft_pink', 'color_success', 'color_danger']
 const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => !URL_FIELDS.includes(key) && !COLOR_FIELDS.includes(key))
 
@@ -55,6 +60,10 @@ function cleanSettings(input = {}) {
 
   for (const key of URL_FIELDS) {
     const value = next[key].trim()
+    if (!value) {
+      next[key] = ''
+      continue
+    }
     try {
       const url = new URL(value)
       if (!['http:', 'https:'].includes(url.protocol)) next[key] = DEFAULT_SETTINGS[key]

@@ -67,7 +67,9 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
             type="button"
             aria-label="Attach file"
           >
-            <span className="brain-input__asset-icon"><img src={assets.plusBase} alt="" /><img className="brain-input__asset-glyph" src={assets.plusIcon} alt="" /></span>
+            {assets.uploadFile
+              ? <img className="brain-input__complete-icon" src={assets.uploadFile} alt="" />
+              : <span className="brain-input__asset-icon"><img src={assets.plusBase} alt="" /><img className="brain-input__asset-glyph" src={assets.plusIcon} alt="" /></span>}
           </button>
 
           <div className="brain-input__tokens">You have {Number.isFinite(tokensRemaining) ? tokensRemaining.toLocaleString() : '—'} token left</div>
@@ -79,7 +81,9 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
             type="button"
             aria-label="Send message"
           >
-            <span className="brain-input__asset-icon"><img src={assets.sendBase} alt="" /><img className="brain-input__asset-glyph" src={assets.sendIcon} alt="" /></span>
+            {assets.sendMessage
+              ? <img className="brain-input__complete-icon" src={assets.sendMessage} alt="" />
+              : <span className="brain-input__asset-icon"><img src={assets.sendBase} alt="" /><img className="brain-input__asset-glyph" src={assets.sendIcon} alt="" /></span>}
           </button>
         </div>
       </div>
@@ -147,6 +151,7 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
         .brain-input__asset-icon { position: relative; display: block; width: 33px; height: 33px; }
         .brain-input__asset-icon > img { position: absolute; inset: 0; width: 33px; height: 33px; object-fit: contain; }
         .brain-input__asset-icon > .brain-input__asset-glyph { inset: 8px; width: 17px; height: 17px; }
+        .brain-input__complete-icon { display: block; width: 33px; height: 33px; object-fit: contain; }
         .brain-input__icon--send { justify-self: end; }
         .brain-input__icon--send.is-disabled { opacity: .45; cursor: default; }
         .brain-input__tokens {

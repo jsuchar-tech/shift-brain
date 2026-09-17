@@ -297,6 +297,11 @@ const DEFAULT_SETTINGS = {
   plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
   send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
   send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
+  sidebar_open_icon_url: '',
+  sidebar_close_icon_url: '',
+  search_icon_url: '',
+  upload_file_icon_url: '',
+  send_message_icon_url: '',
   color_cream: '#fdfbef',
   color_ink: '#0b0b2d',
   color_pink: '#ff008f',
@@ -370,7 +375,13 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
   }, [getToken])
 
   function update(key, value) {
-    setForm(prev => ({ ...prev, [key]: value }))
+    setForm(prev => {
+      const next = { ...prev, [key]: value }
+      // Apply theme and asset edits immediately so curators can verify them
+      // before saving; the PATCH below remains the persistence boundary.
+      onSettingsChange?.(next)
+      return next
+    })
     setStatus('')
   }
 
@@ -404,6 +415,11 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
       <SettingsField label="Brain icon URL" value={form.brain_icon_url} onChange={v => update('brain_icon_url', v)} help="Use a public HTTPS image URL. It appears on the login, account and chat welcome screens." />
       {form.brain_icon_url && <img src={form.brain_icon_url} alt="Brain icon preview" style={{ width: '91px', height: '81px', objectFit: 'contain', display: 'block' }} onError={e => { e.currentTarget.style.opacity = '.25' }} />}
       <div className="brain-admin-settings__icon-grid">
+        <SettingsField label="Open sidebar arrow URL" value={form.sidebar_open_icon_url} onChange={v => update('sidebar_open_icon_url', v)} help="Optional. Leave blank to use the built-in right arrow." />
+        <SettingsField label="Close sidebar arrow URL" value={form.sidebar_close_icon_url} onChange={v => update('sidebar_close_icon_url', v)} help="Optional. Leave blank to use the built-in left arrow." />
+        <SettingsField label="Search icon URL" value={form.search_icon_url} onChange={v => update('search_icon_url', v)} help="Optional. Leave blank to use the built-in search icon." />
+        <SettingsField label="Upload file icon URL" value={form.upload_file_icon_url} onChange={v => update('upload_file_icon_url', v)} help="Optional complete icon. Overrides the layered attachment assets below." />
+        <SettingsField label="Send message icon URL" value={form.send_message_icon_url} onChange={v => update('send_message_icon_url', v)} help="Optional complete icon. Overrides the layered send assets below." />
         <SettingsField label="Attachment button base URL" value={form.plus_base_icon_url} onChange={v => update('plus_base_icon_url', v)} />
         <SettingsField label="Attachment glyph URL" value={form.plus_glyph_icon_url} onChange={v => update('plus_glyph_icon_url', v)} />
         <SettingsField label="Send button base URL" value={form.send_base_icon_url} onChange={v => update('send_base_icon_url', v)} />

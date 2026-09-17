@@ -28,7 +28,8 @@ export default function ConversationSidebar({
   collapsed = false,
   onToggleCollapse,
   onClose,
-  onLogout
+  onLogout,
+  icons = {}
 }) {
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -66,7 +67,7 @@ export default function ConversationSidebar({
         onClick={closeSidebar}
         aria-label="Close chat history"
       >
-        <span className="brain-sidebar__arrow" aria-hidden="true" />
+        {icons.sidebarClose ? <img className="brain-sidebar__custom-icon" src={icons.sidebarClose} alt="" /> : <span className="brain-sidebar__arrow" aria-hidden="true" />}
       </button>
       <div className="brain-sidebar__content">
         <div className="brain-sidebar__title">Your chat history</div>
@@ -78,7 +79,7 @@ export default function ConversationSidebar({
             aria-label={searchOpen ? 'Close conversation search' : 'Search past chats'}
             aria-expanded={searchOpen}
           >
-            <span className="brain-sidebar__search-icon" aria-hidden="true" />
+            {icons.search ? <img className="brain-sidebar__custom-icon" src={icons.search} alt="" /> : <span className="brain-sidebar__search-icon" aria-hidden="true" />}
           </button>
 
           {searchOpen && (
@@ -132,7 +133,11 @@ export default function ConversationSidebar({
         aria-label={collapsed ? 'Show chat history' : 'Hide chat history'}
         title={collapsed ? 'Show chat history' : 'Hide chat history'}
       >
-        <span className="brain-sidebar__arrow" aria-hidden="true" />
+        {collapsed && icons.sidebarOpen
+          ? <img className="brain-sidebar__custom-icon" src={icons.sidebarOpen} alt="" />
+          : !collapsed && icons.sidebarClose
+            ? <img className="brain-sidebar__custom-icon" src={icons.sidebarClose} alt="" />
+            : <span className="brain-sidebar__arrow" aria-hidden="true" />}
       </button>
 
       <button className="brain-sidebar__logout" type="button" onClick={onLogout}>Log out</button>
@@ -228,7 +233,7 @@ export default function ConversationSidebar({
           box-shadow: 3px 5px 10px -1px rgba(0,0,0,.05);
         }
 
-        .brain-sidebar__search-input::placeholder { color: #b7b7b7; opacity: 1; }
+        .brain-sidebar__search-input::placeholder { color: var(--muted, #b7b7b7); opacity: 1; }
         .brain-sidebar__search-input::-webkit-search-cancel-button { cursor: pointer; }
 
         .brain-sidebar__search-icon {
@@ -253,6 +258,8 @@ export default function ConversationSidebar({
           transform-origin: left center;
         }
 
+        .brain-sidebar__custom-icon { width: 18px; height: 18px; object-fit: contain; pointer-events: none; }
+
         .brain-sidebar__new {
           display: flex;
           align-items: center;
@@ -271,7 +278,7 @@ export default function ConversationSidebar({
         }
 
         .brain-sidebar__new span { font-size: 20px; font-weight: 300; line-height: 1; }
-        .brain-sidebar__new:active { transform: translate(1px, 1px); box-shadow: 2px 3px 0 #0b0b2d; }
+        .brain-sidebar__new:active { transform: translate(1px, 1px); box-shadow: 2px 3px 0 var(--ink, #0b0b2d); }
 
         .brain-sidebar__collapse {
           position: absolute;
@@ -339,7 +346,7 @@ export default function ConversationSidebar({
           border: 0;
           border-radius: 8px;
           background: transparent;
-          color: #0b0b2d;
+          color: var(--ink, #0b0b2d);
           font: 13px/21px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           text-align: left;
           cursor: pointer;
@@ -348,7 +355,7 @@ export default function ConversationSidebar({
         .brain-sidebar__item::before {
           content: '•';
           flex: 0 0 auto;
-          color: #0b0b2d;
+          color: var(--ink, #0b0b2d);
         }
 
         .brain-sidebar__item-title {
@@ -362,13 +369,13 @@ export default function ConversationSidebar({
         .brain-sidebar__item time {
           display: none;
           flex: 0 0 auto;
-          color: #b7b7b7;
+          color: var(--muted, #b7b7b7);
           font-size: 10px;
           white-space: nowrap;
         }
 
-        .brain-sidebar__item:hover { background: rgba(255,255,255,.7); }
-        .brain-sidebar__item.is-active { background: #fff; color: var(--pink, #ff008f); box-shadow: 3px 5px 10px -1px rgba(0,0,0,.04); }
+        .brain-sidebar__item:hover { background: color-mix(in srgb, var(--white, #fff) 70%, transparent); }
+        .brain-sidebar__item.is-active { background: var(--white, #fff); color: var(--pink, #ff008f); box-shadow: 3px 5px 10px -1px rgba(0,0,0,.04); }
         .brain-sidebar__item.is-active::before { color: var(--pink, #ff008f); }
         .brain-sidebar__empty { padding: 8px 6px; color: #aaa; font-size: 12px; }
 
@@ -511,7 +518,7 @@ export default function ConversationSidebar({
             margin-top: 0;
             padding: 0 30px 190px;
             scrollbar-width: none;
-            mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 120px), transparent 100%);
+            mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 126px), transparent calc(100% - 42px));
           }
           .brain-sidebar__list::-webkit-scrollbar { display: none; }
           .brain-sidebar__item {
@@ -525,12 +532,12 @@ export default function ConversationSidebar({
           }
           .brain-sidebar__item::before { display: none; }
           .brain-sidebar__item:hover,
-          .brain-sidebar__item.is-active { background: transparent; box-shadow: none; color: #0b0b2d; }
+          .brain-sidebar__item.is-active { background: transparent; box-shadow: none; color: var(--ink, #0b0b2d); }
           .brain-sidebar__item-title { display: block; width: 100%; }
           .brain-sidebar__item time {
             display: block;
             margin-top: 8px;
-            color: #c53b8d;
+            color: var(--pink, #c53b8d);
             font-size: 10px;
             line-height: 14px;
           }

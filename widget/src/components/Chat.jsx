@@ -110,7 +110,12 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
     plusBase: settings?.plus_base_icon_url || ASSETS.plusBase,
     plusIcon: settings?.plus_glyph_icon_url || ASSETS.plusIcon,
     sendBase: settings?.send_base_icon_url || ASSETS.sendBase,
-    sendIcon: settings?.send_glyph_icon_url || ASSETS.sendIcon
+    sendIcon: settings?.send_glyph_icon_url || ASSETS.sendIcon,
+    sidebarOpen: settings?.sidebar_open_icon_url || '',
+    sidebarClose: settings?.sidebar_close_icon_url || '',
+    search: settings?.search_icon_url || '',
+    uploadFile: settings?.upload_file_icon_url || '',
+    sendMessage: settings?.send_message_icon_url || ''
   }
   const theme = {
     '--cream': settings?.color_cream || '#fdfbef',
@@ -147,6 +152,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
         onToggleCollapse={() => setSidebarCollapsed(collapsed => !collapsed)}
         onClose={() => setSidebarOpen(false)}
         onLogout={handleLogout}
+        icons={assets}
       />
 
       <main className={`brain-chat__main ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}>
@@ -156,7 +162,11 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
             onClick={() => setSidebarOpen(open => !open)}
             aria-label={sidebarOpen ? 'Close chat history' : 'Open chat history'}
           >
-            <span className="brain-chat__arrow" aria-hidden="true" />
+            {sidebarOpen && assets.sidebarClose
+              ? <img className="brain-chat__toggle-icon" src={assets.sidebarClose} alt="" />
+              : !sidebarOpen && assets.sidebarOpen
+                ? <img className="brain-chat__toggle-icon" src={assets.sidebarOpen} alt="" />
+                : <span className="brain-chat__arrow" aria-hidden="true" />}
           </button>
 
           <div className="brain-chat__controls">
@@ -284,6 +294,8 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
           margin-left: 4px;
         }
 
+        .brain-chat__toggle-icon { width: 18px; height: 18px; object-fit: contain; }
+
         .brain-chat__controls {
           display: flex;
           align-items: center;
@@ -390,7 +402,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
           width: min(802px, 100%);
           margin: 0;
           transform: none;
-          color: #000;
+          color: var(--ink);
           font-size: 22px;
           font-weight: 500;
           line-height: 34px;
