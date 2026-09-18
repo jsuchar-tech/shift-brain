@@ -478,9 +478,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
         .brain-chat__sidebar-toggle:hover .brain-chat__arrow,
         .brain-sidebar__collapse:hover .brain-sidebar__arrow,
         .brain-sidebar__mobile-close:hover .brain-sidebar__arrow { border-color: var(--white); }
-        .brain-sidebar__search:hover { background: var(--purple); transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
-        .brain-sidebar__search:hover .brain-sidebar__search-icon { border-color: var(--white); }
-        .brain-sidebar__search:hover .brain-sidebar__search-icon::after { background: var(--white); }
+        .brain-sidebar__search:hover { background: var(--purple); color: var(--white); transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
         .brain-sidebar__new:hover { border-color: var(--ink); background: var(--purple); color: var(--white); box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }
         .brain-sidebar__logout:hover { color: var(--purple); }
         .brain-sidebar__item:hover { transform: translateX(3px); }

@@ -63,6 +63,17 @@ function AppContent({ settings, onSettingsChange }) {
 
   const isAdmin = localUser?.role === 'admin' || user?.publicMetadata?.role === 'admin'
 
+  if (accessState === 'checking') {
+    const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
+    return (
+      <div
+        aria-busy="true"
+        aria-label="Signing in"
+        style={{ minHeight: '694px', background: copy.color_cream }}
+      />
+    )
+  }
+
   if (accessState !== 'approved') {
     const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
     return (
@@ -76,11 +87,10 @@ function AppContent({ settings, onSettingsChange }) {
         }}
       >
         <img src={copy.brain_icon_url || DEFAULT_SETTINGS.brain_icon_url} alt="" />
-        {accessState === 'checking' && <><h1>Checking your account…</h1><p>Please wait a moment.</p></>}
         {accessState === 'pending' && <><h1>{copy.signup_pending_heading}</h1><p>{copy.signup_pending_message}</p></>}
         {accessState === 'error' && <><h1>We couldn’t check your account</h1><p>{accessError} Please try again or return to the login screen.</p></>}
         <div className="brain-approval__actions">
-          {accessState !== 'checking' && <button type="button" onClick={refreshAccess}>Check again</button>}
+          <button type="button" onClick={refreshAccess}>Check again</button>
           <button type="button" onClick={() => signOut().then(() => window.location.reload())}>Back to login</button>
         </div>
         <style>{`

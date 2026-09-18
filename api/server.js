@@ -10,6 +10,7 @@ import chatRoutes from './routes/chat.js'
 import adminRoutes from './routes/admin.js'
 import usageRoutes from './routes/usage.js'
 import { publicSettingsRouter, adminSettingsRouter } from './routes/settings.js'
+import { startWeeklyIngestionScheduler } from './lib/weeklyIngestion.js'
 
 dotenv.config()
 
@@ -87,4 +88,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`SHIFT Brain API running on port ${PORT}`)
+  startWeeklyIngestionScheduler()
 })

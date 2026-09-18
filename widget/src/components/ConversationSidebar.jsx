@@ -80,7 +80,14 @@ export default function ConversationSidebar({
             aria-label={searchOpen ? 'Close conversation search' : 'Search past chats'}
             aria-expanded={searchOpen}
           >
-            {icons.search ? <img className="brain-sidebar__custom-icon" src={icons.search} alt="" /> : <span className="brain-sidebar__search-icon" aria-hidden="true" />}
+            {icons.search ? (
+              <img className="brain-sidebar__custom-icon" src={icons.search} alt="" />
+            ) : (
+              <svg className="brain-sidebar__search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.75" cy="10.75" r="6.75" />
+                <path d="m15.75 15.75 4.25 4.25" />
+              </svg>
+            )}
           </button>
 
           {searchOpen && (
@@ -214,6 +221,7 @@ export default function ConversationSidebar({
           border: 0;
           border-radius: 999px;
           background: var(--soft-pink, #ffc2df);
+          color: var(--pink, #ff008f);
           cursor: pointer;
         }
 
@@ -238,25 +246,15 @@ export default function ConversationSidebar({
         .brain-sidebar__search-input::-webkit-search-cancel-button { cursor: pointer; }
 
         .brain-sidebar__search-icon {
-          position: relative;
-          width: 14px;
-          height: 14px;
-          border: 1.5px solid var(--pink, #ff008f);
-          border-radius: 50%;
+          display: block;
+          width: 20px;
+          height: 20px;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 1.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
           pointer-events: none;
-        }
-
-        .brain-sidebar__search-icon::after {
-          content: '';
-          position: absolute;
-          right: -5px;
-          bottom: -4px;
-          width: 6px;
-          height: 1.5px;
-          border-radius: 2px;
-          background: var(--pink, #ff008f);
-          transform: rotate(45deg);
-          transform-origin: left center;
         }
 
         .brain-sidebar__custom-icon { width: 18px; height: 18px; object-fit: contain; pointer-events: none; }
