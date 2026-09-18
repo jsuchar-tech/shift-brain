@@ -192,7 +192,7 @@ async function buildUserMessageContent(message, attachment) {
 
 router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
   const startTime = Date.now()
-  const { message, conversation_id, attachment: requestedAttachment = null } = req.body
+  const { message, conversation_id: rawConversationId, attachment: requestedAttachment = null } = req.body
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return res.status(400).json({ error: 'Message is required' })
@@ -204,8 +204,15 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     })
   }
 
-  if (conversation_id !== undefined && conversation_id !== null && typeof conversation_id !== 'string') {
-    return res.status(400).json({ error: 'Invalid conversation' })
+  let conversationId = null
+  if (rawConversationId !== undefined && rawConversationId !== null) {
+    if (typeof rawConversationId === 'string' && rawConversationId.trim()) {
+      conversationId = rawConversationId.trim()
+    } else if (Number.isSafeInteger(rawConversationId) && rawConversationId > 0) {
+      conversationId = rawConversationId
+    } else {
+      return res.status(400).json({ error: 'Invalid conversation' })
+    }
   }
 
   // Attachments are only ever valid if they live under this user's own
@@ -233,8 +240,8 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     // Participant chat requests may only continue conversations owned by that
     // participant. Curator/admin conversation routes remain intentionally
     // unrestricted and are not affected by this check.
-    if (conversation_id) {
-      const ownsConversation = await conversationBelongsToUser(conversation_id, req.user.id)
+    if (conversationId) {
+      const ownsConversation = await conversationBelongsToUser(conversationId, req.user.id)
       if (!ownsConversation) {
         return res.status(404).json({ error: 'Conversation not found' })
       }
@@ -264,18 +271,18 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
 
       await supabase.from('safety_events').insert({
         user_id: req.user.id,
-        conversation_id: conversation_id || null,
+        conversation_id: conversationId,
         message_content: message,
         trigger_category: safetyCheck.category
       })
 
-      if (conversation_id) {
-        userMessage = await saveMessage(conversation_id, 'user', message, {
+      if (conversationId) {
+        userMessage = await saveMessage(conversationId, 'user', message, {
           language,
           safety_triggered: true,
           reaction_emoji: reactionEmoji
         })
-        await saveMessage(conversation_id, 'assistant', safetyCheck.message, { language, safety_triggered: true })
+        await saveMessage(conversationId, 'assistant', safetyCheck.message, { language, safety_triggered: true })
       }
 
       return res.status(200).json({
@@ -287,7 +294,7 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       })
     }
 
-    let convId = conversation_id
+    let convId = conversationId
     if (!convId) {
       const conversation = await createConversation(req.user.id, message, language)
       convId = conversation.id
