@@ -89,7 +89,8 @@ export async function streamChat({
   onReaction,
   onCitations,
   onDone,
-  onError
+  onError,
+  signal
 }) {
   let token
   let res
@@ -105,9 +106,11 @@ export async function streamChat({
         message,
         conversation_id: conversationId,
         attachment
-      })
+      }),
+      signal
     })
-  } catch {
+  } catch (error) {
+    if (signal?.aborted || error?.name === 'AbortError') return null
     onError({ message: 'Unable to reach SHIFT Brain. Please try again.' })
     return null
   }
@@ -180,7 +183,8 @@ export async function streamChat({
 
     pending += decoder.decode()
     if (pending) handleLine(pending)
-  } catch {
+  } catch (error) {
+    if (signal?.aborted || error?.name === 'AbortError') return conversationId_returned
     onError({ message: 'The response was interrupted. Please try again.' })
     return conversationId_returned
   }

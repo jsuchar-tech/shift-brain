@@ -2,15 +2,14 @@ import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 import { requireAuth } from '../middleware/auth.js'
-import { rateLimitPerUser, rateLimitUploads, releaseGuard } from '../middleware/rateLimit.js'
-import { embedQuery } from '../lib/voyage.js'
-import { retrieveChunks, formatChunksForPrompt, formatChunksForCitation } from '../lib/retrieval.js'
+import { rateLimitPerUser, rateLimitUploads } from '../middleware/rateLimit.js'
+import { retrieveRelevantChunks, packChunksForPrompt, formatChunksForCitation } from '../lib/retrieval.js'
 import { checkTokenLimits } from '../lib/tokenCheck.js'
 import { checkSafetyTriggers } from '../lib/safety.js'
 import { buildSystemPrompt } from '../lib/systemPrompt.js'
 import { detectLanguage } from '../lib/detectLanguage.js'
 import { selectMessageReaction } from '../lib/messageReaction.js'
-import { conversationBelongsToUser, getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
+import { buildRetrievalQuery, conversationBelongsToUser, getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
 import { supabase } from '../lib/supabase.js'
 import {
   cleanupExpiredUploads,
@@ -235,25 +234,30 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
   let requestController = null
   let requestTimeout = null
   let abortOnDisconnect = null
+  let streamHeartbeat = null
 
   try {
+    // These checks are independent and all scoped to the authenticated user,
+    // so running them together removes avoidable database round trips.
+    const [ownsConversation, attachment, limitCheck] = await Promise.all([
+      conversationId
+        ? conversationBelongsToUser(conversationId, req.user.id)
+        : Promise.resolve(true),
+      requestedAttachment
+        ? resolvePendingUpload(requestedAttachment.storage_path, req.user.id)
+        : Promise.resolve(null),
+      checkTokenLimits(req.user.id)
+    ])
+
     // Participant chat requests may only continue conversations owned by that
-    // participant. Curator/admin conversation routes remain intentionally
-    // unrestricted and are not affected by this check.
-    if (conversationId) {
-      const ownsConversation = await conversationBelongsToUser(conversationId, req.user.id)
-      if (!ownsConversation) {
-        return res.status(404).json({ error: 'Conversation not found' })
-      }
+    // participant. Curator/admin routes remain intentionally unrestricted.
+    if (!ownsConversation) {
+      return res.status(404).json({ error: 'Conversation not found' })
+    }
+    if (requestedAttachment && !attachment) {
+      return res.status(403).json({ error: 'Invalid or expired attachment' })
     }
 
-    let attachment = null
-    if (requestedAttachment) {
-      attachment = await resolvePendingUpload(requestedAttachment.storage_path, req.user.id)
-      if (!attachment) return res.status(403).json({ error: 'Invalid or expired attachment' })
-    }
-
-    const limitCheck = await checkTokenLimits(req.user.id)
     if (!limitCheck.allowed) {
       return res.status(429).json({
         error: 'token_limit',
@@ -326,6 +330,20 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     }
     res.once('close', abortOnDisconnect)
 
+    // Establish SSE immediately, before embedding/retrieval, so proxies and the
+    // client know the request is alive instead of waiting on preflight work.
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no')
+    res.setHeader('X-Conversation-Id', String(convId))
+    res.flushHeaders?.()
+    res.write(`data: ${JSON.stringify({ type: 'conversation_id', conversation_id: convId })}\n\n`)
+
+    streamHeartbeat = setInterval(() => {
+      if (!res.writableEnded) res.write(': keep-alive\n\n')
+    }, 15_000)
+
     const reactionSignal = AbortSignal.any([
       requestController.signal,
       AbortSignal.timeout(8_000)
@@ -346,36 +364,8 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       return reactionEmoji
     })
 
-    const queryEmbedding = await embedQuery(message, { signal: requestController.signal })
-    const chunks = await retrieveChunks(queryEmbedding, message, { signal: requestController.signal })
-
-    if (process.env.DEBUG_RETRIEVAL === 'true') {
-      console.log('Retrieved chunks (after reranking):')
-      chunks.forEach((chunk, index) => {
-        const score = chunk.rerank_score !== undefined
-          ? `rerank: ${chunk.rerank_score?.toFixed(3)}`
-          : `similarity: ${chunk.similarity?.toFixed(3)}`
-        console.log(`  [${index + 1}] ${chunk.source_file_name} (${score})`)
-      })
-    }
-
-    const contextText = formatChunksForPrompt(chunks)
-    const citationData = formatChunksForCitation(chunks)
-
-    const userContent = await buildUserMessageContent(
-      `Here are relevant excerpts from SHIFT's documents:\n\n${contextText}\n\n---\n\nBased on the above documents, please answer this question:\n\n${message}`,
-      attachment
-    )
-
-    const messages = [...history, { role: 'user', content: userContent }]
-
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('Connection', 'keep-alive')
-    res.setHeader('X-Conversation-Id', convId)
-
-    res.write(`data: ${JSON.stringify({ type: 'conversation_id', conversation_id: convId })}\n\n`)
-
+    // Deliver the reaction as soon as it is ready instead of holding it behind
+    // embedding and reranking work.
     const reactionDelivery = reactionPromise.then(reactionEmoji => {
       if (!res.writableEnded) {
         res.write(`data: ${JSON.stringify({
@@ -388,16 +378,41 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       return reactionEmoji
     })
 
+    const retrievalQuery = buildRetrievalQuery(history, message)
+    const chunks = await retrieveRelevantChunks(retrievalQuery, { signal: requestController.signal })
+
+    if (process.env.DEBUG_RETRIEVAL === 'true') {
+      console.log('Retrieved chunks (after reranking):')
+      chunks.forEach((chunk, index) => {
+        const score = chunk.rerank_score !== undefined
+          ? `rerank: ${chunk.rerank_score?.toFixed(3)}`
+          : `similarity: ${chunk.similarity?.toFixed(3)}`
+        console.log(`  [${index + 1}] ${chunk.source_file_name} (${score})`)
+      })
+    }
+
+    const packedContext = packChunksForPrompt(chunks)
+    const contextText = packedContext.text
+    const citationData = formatChunksForCitation(packedContext.chunks)
+
+    const retrievedContext = contextText || '[No relevant knowledge-base excerpts were retrieved.]'
+    const userContent = await buildUserMessageContent(
+      `Here are relevant excerpts from SHIFT's documents:\n\n${retrievedContext}\n\n---\n\nBased on the above documents, please answer this question:\n\n${message}`,
+      attachment
+    )
+
+    const messages = [...history, { role: 'user', content: userContent }]
+
     let fullResponse = ''
     let inputTokens = 0
     let outputTokens = 0
 
-const stream = anthropic.messages.stream({
-  model: 'claude-haiku-4-5-20251001',
-  max_tokens: 2048,
-  system: buildSystemPrompt(),   // ← was buildSystemPrompt(language)
-  messages
-}, { signal: requestController.signal })
+    const stream = anthropic.messages.stream({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      system: buildSystemPrompt(),
+      messages
+    }, { signal: requestController.signal })
 
     stream.on('text', (text) => {
       fullResponse += text
@@ -425,7 +440,7 @@ const stream = anthropic.messages.stream({
     // Release the exclusive request lock before telling the client that the
     // chat is ready for another message. The middleware also releases it on
     // finish/close, so this is safe and removes the follow-up request race.
-    await releaseGuard('chat', req.user.id)
+    await res.locals.releaseRequestGuard?.()
 
     res.write(`data: ${JSON.stringify({ type: 'citations', citations: citationData })}\n\n`)
     res.write(`data: ${JSON.stringify({ type: 'done', tokens_in: inputTokens, tokens_out: outputTokens, latency_ms: latencyMs })}\n\n`)
@@ -440,6 +455,7 @@ const stream = anthropic.messages.stream({
     res.end()
   } finally {
     if (requestTimeout) clearTimeout(requestTimeout)
+    if (streamHeartbeat) clearInterval(streamHeartbeat)
     if (abortOnDisconnect) res.off('close', abortOnDisconnect)
   }
 })

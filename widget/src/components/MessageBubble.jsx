@@ -28,7 +28,7 @@ function CopyButton({ content }) {
   )
 }
 
-function MessageBubble({ message, fontSize = 16 }) {
+function MessageBubble({ message, fontSize = 16, includeStyles = false }) {
   const isUser = message.role === 'user'
 
   return (
@@ -68,8 +68,13 @@ function MessageBubble({ message, fontSize = 16 }) {
         )}
       </div>
 
-      <style>{`
-        .brain-message { display: flex; width: 100%; }
+      {includeStyles && <style>{`
+        .brain-message {
+          display: flex;
+          width: 100%;
+          content-visibility: auto;
+          contain-intrinsic-size: auto 120px;
+        }
         .brain-message.is-user { justify-content: flex-end; margin-bottom: 31px; }
         .brain-message.is-assistant { justify-content: flex-start; margin-bottom: 34px; }
 
@@ -187,7 +192,7 @@ function MessageBubble({ message, fontSize = 16 }) {
           .brain-message__markdown ul,
           .brain-message__markdown ol { margin-bottom: 19px; }
         }
-      `}</style>
+      `}</style>}
     </article>
   )
 }

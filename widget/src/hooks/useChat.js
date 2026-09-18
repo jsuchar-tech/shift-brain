@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { streamChat } from '../lib/api'
 
 export function useChat(getToken) {
@@ -6,6 +6,9 @@ export function useChat(getToken) {
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState(null)
   const [error, setError] = useState(null)
+  const activeRequestRef = useRef(null)
+
+  useEffect(() => () => activeRequestRef.current?.abort(), [])
 
   const sendMessage = useCallback(
     async (text, attachment = null) => {
@@ -13,6 +16,8 @@ export function useChat(getToken) {
 
       setIsLoading(true)
       setError(null)
+      const requestController = new AbortController()
+      activeRequestRef.current = requestController
 
       const userId = Date.now()
 
@@ -128,7 +133,8 @@ export function useChat(getToken) {
             setMessages(prev =>
               prev.filter(msg => msg.id !== assistantId)
             )
-          }
+          },
+          signal: requestController.signal
         })
       } catch (err) {
         if (animationFrame !== null) cancelAnimationFrame(animationFrame)
@@ -137,7 +143,10 @@ export function useChat(getToken) {
         setError(err?.message || 'Unable to send your message. Please try again.')
         setMessages(prev => prev.filter(msg => msg.id !== assistantId))
       } finally {
-        setIsLoading(false)
+        if (activeRequestRef.current === requestController) {
+          activeRequestRef.current = null
+          setIsLoading(false)
+        }
       }
 
       if (newConvId && !conversationId) {
@@ -148,12 +157,18 @@ export function useChat(getToken) {
   )
 
   const clearChat = useCallback(() => {
+    activeRequestRef.current?.abort()
+    activeRequestRef.current = null
     setMessages([])
     setConversationId(null)
     setError(null)
+    setIsLoading(false)
   }, [])
 
   const loadConversation = useCallback((conversation, msgs) => {
+    activeRequestRef.current?.abort()
+    activeRequestRef.current = null
+    setIsLoading(false)
     setConversationId(conversation.id)
 
     setMessages(

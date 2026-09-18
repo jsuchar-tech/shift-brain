@@ -49,13 +49,14 @@ function distributedRateLimit({ scope, limit, windowSeconds, lockSeconds = 0, ex
 
       if (exclusive) {
         let released = false
-        const release = () => {
+        const release = async () => {
           if (released) return
           released = true
-          void releaseGuard(scope, key)
+          await releaseGuard(scope, key)
         }
-        res.once('finish', release)
-        res.once('close', release)
+        res.locals.releaseRequestGuard = release
+        res.once('finish', () => { void release() })
+        res.once('close', () => { void release() })
       }
 
       return next()

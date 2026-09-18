@@ -18,8 +18,13 @@ export default function MessageList({ messages, isLoading, fontSize, scrollToBot
   return (
     <div className="brain-message-list" ref={listRef}>
       <div className="brain-message-list__content">
-        {messages.map(msg => (
-          <MessageBubble key={msg.id} message={msg} fontSize={fontSize} />
+        {messages.map((msg, index) => (
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            fontSize={fontSize}
+            includeStyles={index === 0}
+          />
         ))}
 
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
