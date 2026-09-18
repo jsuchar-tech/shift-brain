@@ -85,6 +85,7 @@ export async function streamChat({
   conversationId,
   attachment = null,
   onText,
+  onReaction,
   onCitations,
   onDone,
   onError
@@ -119,6 +120,9 @@ export async function streamChat({
   const contentType = res.headers.get('content-type') || ''
   if (contentType.includes('application/json')) {
     const data = await res.json()
+    if (data.reaction_emoji) {
+      onReaction?.({ emoji: data.reaction_emoji, messageId: data.message_id || null })
+    }
     if (data.response) onText(data.response)
     onDone(data)
     return data.conversation_id || null
@@ -142,6 +146,8 @@ export async function streamChat({
         conversationId_returned = data.conversation_id
       } else if (data.type === 'text') {
         onText(data.text)
+      } else if (data.type === 'reaction') {
+        onReaction?.({ emoji: data.emoji, messageId: data.message_id || null })
       } else if (data.type === 'citations') {
         onCitations(data.citations)
       } else if (data.type === 'done') {

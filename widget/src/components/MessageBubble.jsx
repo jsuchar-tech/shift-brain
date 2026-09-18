@@ -42,6 +42,15 @@ function MessageBubble({ message, fontSize = 16 }) {
                 {message.attachments.map(attachment => attachment.file_name).join(', ')}
               </div>
             )}
+            {message.reactionEmoji && (
+              <span
+                className="brain-message__reaction"
+                role="img"
+                aria-label={`SHIFT Brain reacted with ${message.reactionEmoji}`}
+              >
+                {message.reactionEmoji}
+              </span>
+            )}
           </>
         ) : (
           <>
@@ -71,6 +80,7 @@ function MessageBubble({ message, fontSize = 16 }) {
         }
 
         .brain-message.is-user .brain-message__body {
+          position: relative;
           width: fit-content;
           max-width: min(76%, 500px);
           min-height: 44px;
@@ -94,6 +104,24 @@ function MessageBubble({ message, fontSize = 16 }) {
 
         .brain-message__attachments { margin-top: 5px; color: rgba(0,0,0,.6); font-size: 11px; line-height: 16px; }
         .brain-message__attachments::before { content: '+ '; color: var(--pink, #ff008f); }
+
+        .brain-message__reaction {
+          position: absolute;
+          left: 14px;
+          bottom: -17px;
+          display: grid;
+          place-items: center;
+          min-width: 32px;
+          height: 27px;
+          padding: 0 7px;
+          border: 2px solid var(--cream, #fdfbef);
+          border-radius: 999px;
+          background: var(--white, #fff);
+          box-shadow: 0 2px 8px rgba(11, 11, 45, .14);
+          font-size: 16px;
+          line-height: 1;
+          animation: brain-reaction-pop 360ms cubic-bezier(.22, 1.4, .36, 1) both;
+        }
 
         .brain-message__cursor {
           display: inline-block;
@@ -120,6 +148,14 @@ function MessageBubble({ message, fontSize = 16 }) {
 
         .brain-message__copy:hover { text-decoration: underline; text-underline-offset: 3px; }
         @keyframes brain-message-blink { 50% { opacity: 0; } }
+        @keyframes brain-reaction-pop {
+          0% { opacity: 0; transform: translateY(5px) scale(.55) rotate(-8deg); }
+          100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .brain-message__reaction { animation: none; }
+        }
 
         @media (max-width: 767px) {
           .brain-message.is-user { margin-bottom: 26px; }

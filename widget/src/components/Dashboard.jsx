@@ -224,6 +224,7 @@ function ConversationsTab({ getToken }) {
                 {msg.safety_triggered && <span style={{ marginLeft: '8px', color: '#e53e3e' }}>⚠ Safety</span>}
               </p>
               <p style={{ fontSize: '13px', lineHeight: '1.6', color: '#333', whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+              {msg.role === 'user' && msg.reaction_emoji && <span role="img" aria-label={`SHIFT Brain reacted with ${msg.reaction_emoji}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '30px', height: '25px', marginTop: '7px', padding: '0 6px', border: '1px solid #efeee7', borderRadius: '999px', background: '#fff', fontSize: '15px' }}>{msg.reaction_emoji}</span>}
               {msg.attachments?.length > 0 && <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>{msg.attachments.map((a, i) => <AttachmentThumb key={i} attachment={a} />)}</div>}
               {msg.chunks_used?.length > 0 && <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f0f0f0' }}><p style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>Sources used:</p>{msg.chunks_used.map((c, i) => <p key={i} style={{ fontSize: '11px', color: '#ff008f' }}>📄 {c.file_name}{c.page_number ? ` p.${c.page_number}` : ''}</p>)}</div>}
               <p style={{ fontSize: '11px', color: '#ccc', marginTop: '6px' }}>{new Date(msg.created_at).toLocaleTimeString()}{msg.tokens_in ? ` · ${msg.tokens_in + msg.tokens_out} tokens` : ''}{msg.latency_ms ? ` · ${msg.latency_ms}ms` : ''}</p>

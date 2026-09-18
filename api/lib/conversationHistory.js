@@ -55,7 +55,8 @@ export async function saveMessage(conversationId, role, content, extras = {}) {
       tokens_out: extras.tokens_out || 0,
       latency_ms: extras.latency_ms || 0,
       language: extras.language,
-      safety_triggered: extras.safety_triggered || false
+      safety_triggered: extras.safety_triggered || false,
+      reaction_emoji: extras.reaction_emoji || null
     })
     .select()
     .single()

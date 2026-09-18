@@ -74,6 +74,13 @@ export function useChat(getToken) {
           }
         },
 
+        onReaction: ({ emoji }) => {
+          if (!emoji) return
+          setMessages(prev => prev.map(msg =>
+            msg.id === userId ? { ...msg, reactionEmoji: emoji } : msg
+          ))
+        },
+
         onCitations: cits => {
           cancelPendingFrame()
 
@@ -141,7 +148,8 @@ export function useChat(getToken) {
         content: m.content,
         id: m.id,
         citations: m.chunks_used || [],
-        attachments: m.attachments || []
+        attachments: m.attachments || [],
+        reactionEmoji: m.reaction_emoji || null
       }))
     )
   }, [])

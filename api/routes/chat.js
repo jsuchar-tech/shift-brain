@@ -9,6 +9,7 @@ import { checkTokenLimits } from '../lib/tokenCheck.js'
 import { checkSafetyTriggers } from '../lib/safety.js'
 import { buildSystemPrompt } from '../lib/systemPrompt.js'
 import { detectLanguage } from '../lib/detectLanguage.js'
+import { selectMessageReaction } from '../lib/messageReaction.js'
 import { conversationBelongsToUser, getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
 import { supabase } from '../lib/supabase.js'
 import {
@@ -256,6 +257,11 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
 
     const safetyCheck = checkSafetyTriggers(message)
     if (safetyCheck.triggered) {
+      const reactionEmoji = await selectMessageReaction(anthropic, message, {
+        signal: AbortSignal.timeout(8_000)
+      })
+      let userMessage = null
+
       await supabase.from('safety_events').insert({
         user_id: req.user.id,
         conversation_id: conversation_id || null,
@@ -264,12 +270,18 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       })
 
       if (conversation_id) {
-        await saveMessage(conversation_id, 'user', message, { language, safety_triggered: true })
+        userMessage = await saveMessage(conversation_id, 'user', message, {
+          language,
+          safety_triggered: true,
+          reaction_emoji: reactionEmoji
+        })
         await saveMessage(conversation_id, 'assistant', safetyCheck.message, { language, safety_triggered: true })
       }
 
       return res.status(200).json({
         response: safetyCheck.message,
+        reaction_emoji: reactionEmoji,
+        message_id: userMessage?.id || null,
         safety_triggered: true,
         category: safetyCheck.category
       })
@@ -307,6 +319,26 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     }
     res.once('close', abortOnDisconnect)
 
+    const reactionSignal = AbortSignal.any([
+      requestController.signal,
+      AbortSignal.timeout(8_000)
+    ])
+    const reactionPromise = selectMessageReaction(anthropic, message, {
+      signal: reactionSignal
+    }).then(async reactionEmoji => {
+      const { error: reactionError } = await supabase
+        .from('messages')
+        .update({ reaction_emoji: reactionEmoji })
+        .eq('id', userMessage.id)
+        .eq('conversation_id', convId)
+
+      if (reactionError) {
+        console.error('Failed to save message reaction:', reactionError)
+      }
+
+      return reactionEmoji
+    })
+
     const queryEmbedding = await embedQuery(message, { signal: requestController.signal })
     const chunks = await retrieveChunks(queryEmbedding, message, { signal: requestController.signal })
 
@@ -337,6 +369,18 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
 
     res.write(`data: ${JSON.stringify({ type: 'conversation_id', conversation_id: convId })}\n\n`)
 
+    const reactionDelivery = reactionPromise.then(reactionEmoji => {
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify({
+          type: 'reaction',
+          message_id: userMessage.id,
+          emoji: reactionEmoji
+        })}\n\n`)
+      }
+
+      return reactionEmoji
+    })
+
     let fullResponse = ''
     let inputTokens = 0
     let outputTokens = 0
@@ -359,6 +403,7 @@ const stream = anthropic.messages.stream({
     })
 
     await stream.finalMessage()
+    await reactionDelivery
 
     const latencyMs = Date.now() - startTime
 

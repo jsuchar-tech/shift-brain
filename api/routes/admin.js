@@ -328,6 +328,9 @@ router.get('/conversations/:id/export', async (req, res) => {
       const time = new Date(msg.created_at).toLocaleTimeString()
       lines.push(`[${time}] ${role}:`)
       lines.push(msg.content)
+      if (msg.role === 'user' && msg.reaction_emoji) {
+        lines.push(`SHIFT Brain reaction: ${msg.reaction_emoji}`)
+      }
       lines.push('')
 
       if (msg.chunks_used && msg.chunks_used.length > 0) {
