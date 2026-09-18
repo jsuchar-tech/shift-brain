@@ -120,7 +120,19 @@ function MessageBubble({ message, fontSize = 16 }) {
           box-shadow: 0 2px 8px rgba(11, 11, 45, .14);
           font-size: 16px;
           line-height: 1;
-          animation: brain-reaction-pop 360ms cubic-bezier(.22, 1.4, .36, 1) both;
+          transform-origin: 25% 100%;
+          will-change: transform, opacity;
+          animation: brain-reaction-pop 620ms cubic-bezier(.2, .9, .25, 1.25) both;
+        }
+
+        .brain-message__reaction::after {
+          position: absolute;
+          inset: -5px;
+          border: 2px solid var(--pink, #ff008f);
+          border-radius: inherit;
+          content: '';
+          pointer-events: none;
+          animation: brain-reaction-ripple 680ms ease-out both;
         }
 
         .brain-message__cursor {
@@ -149,12 +161,23 @@ function MessageBubble({ message, fontSize = 16 }) {
         .brain-message__copy:hover { text-decoration: underline; text-underline-offset: 3px; }
         @keyframes brain-message-blink { 50% { opacity: 0; } }
         @keyframes brain-reaction-pop {
-          0% { opacity: 0; transform: translateY(5px) scale(.55) rotate(-8deg); }
+          0% { opacity: 0; transform: translateY(12px) scale(.18) rotate(-18deg); }
+          42% { opacity: 1; transform: translateY(-5px) scale(1.3) rotate(8deg); }
+          62% { transform: translateY(1px) scale(.88) rotate(-3deg); }
+          80% { transform: translateY(-1px) scale(1.08) rotate(1deg); }
           100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
         }
 
+        @keyframes brain-reaction-ripple {
+          0% { opacity: .65; transform: scale(.65); }
+          45% { opacity: .3; }
+          100% { opacity: 0; transform: scale(1.45); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
-          .brain-message__reaction { animation: none; }
+          .brain-message__reaction,
+          .brain-message__reaction::after { animation: none; }
+          .brain-message__reaction::after { display: none; }
         }
 
         @media (max-width: 767px) {

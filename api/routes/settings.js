@@ -2,17 +2,20 @@ import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
+const ASSET_BASE_URL = 'https://shift-brain-production.up.railway.app/assets'
+const LEGACY_FIGMA_ASSET_PREFIX = 'https://www.figma.com/api/mcp/asset/'
+
 const DEFAULT_SETTINGS = {
-  brain_icon_url: 'https://www.figma.com/api/mcp/asset/03794579-c631-4353-bbb8-fcce3e3805e9.png',
-  plus_base_icon_url: 'https://www.figma.com/api/mcp/asset/cd672794-278f-48fa-8271-52df6c45e0be.svg',
-  plus_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/e6a28874-40dc-460c-8577-b110cd8a85c4.svg',
-  send_base_icon_url: 'https://www.figma.com/api/mcp/asset/df6caf01-4c0b-4404-b3b9-40ab16eaff91.svg',
-  send_glyph_icon_url: 'https://www.figma.com/api/mcp/asset/87d5cb37-4b71-4820-ad56-3e57816650b5.svg',
-  sidebar_open_icon_url: '',
-  sidebar_close_icon_url: '',
-  search_icon_url: '',
-  upload_file_icon_url: '',
-  send_message_icon_url: '',
+  brain_icon_url: `${ASSET_BASE_URL}/brain-icon.png`,
+  plus_base_icon_url: `${ASSET_BASE_URL}/plus-base.svg`,
+  plus_glyph_icon_url: `${ASSET_BASE_URL}/plus-glyph.svg`,
+  send_base_icon_url: `${ASSET_BASE_URL}/send-base.svg`,
+  send_glyph_icon_url: `${ASSET_BASE_URL}/send-glyph.svg`,
+  sidebar_open_icon_url: `${ASSET_BASE_URL}/sidebar-open.svg`,
+  sidebar_close_icon_url: `${ASSET_BASE_URL}/sidebar-close.svg`,
+  search_icon_url: `${ASSET_BASE_URL}/search.svg`,
+  upload_file_icon_url: `${ASSET_BASE_URL}/upload-file.svg`,
+  send_message_icon_url: `${ASSET_BASE_URL}/send-message.svg`,
   color_cream: '#fdfbef',
   color_ink: '#0b0b2d',
   color_pink: '#ff008f',
@@ -62,6 +65,10 @@ function cleanSettings(input = {}) {
     const value = next[key].trim()
     if (!value) {
       next[key] = ''
+      continue
+    }
+    if (value.startsWith(LEGACY_FIGMA_ASSET_PREFIX)) {
+      next[key] = DEFAULT_SETTINGS[key]
       continue
     }
     try {
