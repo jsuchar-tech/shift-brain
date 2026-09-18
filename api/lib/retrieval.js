@@ -1,14 +1,14 @@
 import { supabase } from './supabase.js'
+import { fetchWithTimeout } from './http.js'
 import dotenv from 'dotenv'
 dotenv.config()
 
-const TOP_K = 20        // candidates from vector search
-const RERANK_TOP_K = 6  // final chunks sent to Claude after reranking
+const TOP_K = 20
+const RERANK_TOP_K = 6
 const KEYWORD_K = 8
-const MIN_RERANK_SCORE = 0.3  // drop chunks the reranker doesn't consider relevant
+const MIN_RERANK_SCORE = 0.3
 
-export async function retrieveChunks(queryEmbedding, queryText) {
-  // Step 1 — vector similarity search
+export async function retrieveChunks(queryEmbedding, queryText, { signal } = {}) {
   const { data: vectorResults, error } = await supabase.rpc('match_chunks', {
     query_embedding: queryEmbedding,
     match_count: TOP_K
@@ -19,22 +19,21 @@ export async function retrieveChunks(queryEmbedding, queryText) {
     throw error
   }
 
-  // Step 2 — keyword fallback
   const keywords = extractKeywords(queryText)
   let keywordResults = []
 
   if (keywords.length > 0) {
     const keywordFilter = keywords.map(k => `content.ilike.%${k}%`).join(',')
-    const { data: kwData } = await supabase
+    const { data: kwData, error: keywordError } = await supabase
       .from('document_chunks')
       .select('id, content, source_type, source_file_name, source_url, page_number, slide_number, section_header')
       .or(keywordFilter)
       .limit(KEYWORD_K)
 
+    if (keywordError) throw keywordError
     keywordResults = kwData || []
   }
 
-  // Step 3 — merge and deduplicate
   const seen = new Set((vectorResults || []).map(c => c.id))
   const merged = [
     ...(vectorResults || []),
@@ -42,21 +41,13 @@ export async function retrieveChunks(queryEmbedding, queryText) {
   ]
 
   if (merged.length === 0) return []
-
-  // Step 4 — rerank and filter out weak matches.
-  // The result may legitimately contain fewer than RERANK_TOP_K chunks,
-  // or be empty — that's correct behaviour when nothing is truly relevant,
-  // and lets the system prompt's "missing information" rule kick in cleanly
-  // instead of the model straining to synthesize an answer from noise.
-  const reranked = await rerankChunks(queryText, merged)
-  return reranked
+  return rerankChunks(queryText, merged, signal)
 }
 
-async function rerankChunks(query, chunks) {
+async function rerankChunks(query, chunks, signal) {
   try {
     const documents = chunks.map(c => c.content)
-
-    const response = await fetch('https://api.voyageai.com/v1/rerank', {
+    const response = await fetchWithTimeout('https://api.voyageai.com/v1/rerank', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,29 +59,23 @@ async function rerankChunks(query, chunks) {
         model: 'rerank-2.5',
         top_k: RERANK_TOP_K,
         return_documents: false
-      })
-    })
+      }),
+      signal
+    }, 20_000)
 
     if (!response.ok) {
       const err = await response.text()
-      console.error('Rerank API error:', err)
-      // Fall back to vector results if reranking fails
+      console.error(`Rerank API error (${response.status}):`, err.slice(0, 300))
       return chunks.slice(0, RERANK_TOP_K)
     }
 
     const data = await response.json()
-
-    // Map reranked indices back to original chunks, dropping anything
-    // below the relevance floor so weak matches don't dilute the context
     return data.data
       .filter(result => result.relevance_score >= MIN_RERANK_SCORE)
       .sort((a, b) => b.relevance_score - a.relevance_score)
-      .map(result => ({
-        ...chunks[result.index],
-        rerank_score: result.relevance_score
-      }))
-
+      .map(result => ({ ...chunks[result.index], rerank_score: result.relevance_score }))
   } catch (err) {
+    if (signal?.aborted) throw err
     console.error('Reranking failed, falling back to vector results:', err)
     return chunks.slice(0, RERANK_TOP_K)
   }

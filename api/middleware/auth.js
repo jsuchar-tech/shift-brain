@@ -1,4 +1,4 @@
-import { verifyToken } from '@clerk/backend'
+import { verifySessionToken } from '../lib/clerk.js'
 import { supabase } from '../lib/supabase.js'
 
 export async function requireAuth(req, res, next) {
@@ -8,9 +8,7 @@ export async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' })
     }
 
-    const payload = await verifyToken(header.slice(7), {
-      secretKey: process.env.CLERK_SECRET_KEY
-    })
+    const payload = await verifySessionToken(header.slice(7))
 
     const { data: user, error } = await supabase
       .from('users')

@@ -1,21 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import path from 'node:path'
 
 export default defineConfig({
   plugins: [react()],
-  esbuild: {
-    loader: 'jsx',
-    include: /src\/.*\.jsx$/,
-    exclude: []
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      loader: {
-        '.jsx': 'jsx'
-      }
-    }
-  },
   server: {
     port: 5173,
     proxy: {
@@ -30,7 +18,7 @@ export default defineConfig({
   },
   build: {
     // Safely resolves the path to the sibling api/public directory
-    outDir: path.resolve(__dirname, '../api/public'),
+    outDir: path.resolve(import.meta.dirname, '../api/public'),
     emptyOutDir: true,
     rollupOptions: {
       output: {
@@ -44,4 +32,3 @@ export default defineConfig({
     }
   }
 })
-

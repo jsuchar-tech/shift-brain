@@ -3,7 +3,9 @@ import { supabase } from '../lib/supabase.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import { detectLanguage } from '../lib/detectLanguage.js'
 import { clerkClient } from '../lib/clerk.js'
-import { clerkProfile } from '../lib/clerkProfile.js'
+import { clerkProfile, verifiedPrimaryEmail } from '../lib/clerkProfile.js'
+import { acquireGlobalGuard, releaseGuard } from '../middleware/rateLimit.js'
+import { spawn } from 'node:child_process'
 
 const router = Router()
 
@@ -32,18 +34,27 @@ router.get('/users', async (req, res) => {
       for (const clerkUser of clerkPage.data) {
         if (knownClerkIds.has(clerkUser.id)) continue
 
+        const verifiedEmail = verifiedPrimaryEmail(clerkUser)
+        if (!verifiedEmail) {
+          console.warn(`Skipping Clerk user ${clerkUser.id}: no verified email address`)
+          continue
+        }
+
         const profile = clerkProfile(clerkUser)
-        const emailKey = String(profile.work_email || '').toLowerCase()
+        const emailKey = verifiedEmail.toLowerCase()
         const emailMatch = emailKey ? knownEmails.get(emailKey) : null
 
         if (emailMatch) {
-          const { data: linked, error: linkError } = await supabase
-            .from('users')
-            .update({ clerk_user_id: clerkUser.id, is_active: false })
-            .eq('id', emailMatch.id)
-            .select()
-            .single()
+          const { data: linked, error: linkError } = await supabase.rpc(
+            'link_verified_clerk_user',
+            {
+              p_clerk_user_id: clerkUser.id,
+              p_verified_email: verifiedEmail,
+              p_require_approval: true
+            }
+          )
           if (linkError) throw linkError
+          if (!linked) continue
           users = users.map(user => user.id === linked.id ? linked : user)
           knownClerkIds.add(clerkUser.id)
           continue
@@ -246,7 +257,7 @@ router.get('/conversations/:id', async (req, res) => {
         try {
           const { data: signed, error: signError } = await supabase.storage
             .from('attachments')
-            .createSignedUrl(a.storage_path, 60 * 60) // 1 hour
+            .createSignedUrl(a.storage_path, 5 * 60) // 5 minutes
 
           return { ...a, signed_url: signError ? null : (signed?.signedUrl || null) }
         } catch {
@@ -490,17 +501,47 @@ router.get('/stats', async (req, res) => {
 
 // POST /admin/ingest
 router.post('/ingest', async (req, res) => {
+  let guardAcquired = false
   try {
-    const { exec } = await import('child_process')
-    res.json({ message: 'Ingestion started — check server logs for progress' })
-    exec('python -m ingestion.main', (error, stdout, stderr) => {
-      if (error) {
-        console.error('Ingestion error:', error)
-        return
-      }
-      console.log('Ingestion output:', stdout)
+    const guard = await acquireGlobalGuard('knowledge-ingestion', 60 * 60)
+    if (!guard?.allowed) {
+      return res.status(409).json({
+        error: 'An ingestion job is already running',
+        retry_after_seconds: guard?.retry_after_seconds || 60
+      })
+    }
+    guardAcquired = true
+
+    const child = spawn(process.env.PYTHON_BIN || 'python3', ['-m', 'ingestion.main'], {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe']
     })
+
+    const ingestionTimeout = setTimeout(() => {
+      console.error('Ingestion exceeded 55 minutes; terminating the worker')
+      child.kill('SIGTERM')
+      setTimeout(() => {
+        if (child.exitCode === null) child.kill('SIGKILL')
+      }, 5_000).unref()
+    }, 55 * 60 * 1000)
+    ingestionTimeout.unref()
+
+    child.stdout.on('data', chunk => console.log(`Ingestion: ${String(chunk).trimEnd()}`))
+    child.stderr.on('data', chunk => console.error(`Ingestion: ${String(chunk).trimEnd()}`))
+    child.once('error', async error => {
+      console.error('Ingestion process error:', error)
+      await releaseGuard('knowledge-ingestion', 'global')
+    })
+    child.once('close', async code => {
+      clearTimeout(ingestionTimeout)
+      console.log(`Ingestion process exited with code ${code}`)
+      await releaseGuard('knowledge-ingestion', 'global')
+    })
+
+    res.status(202).json({ message: 'Ingestion started — check server logs for progress' })
   } catch (err) {
+    if (guardAcquired) await releaseGuard('knowledge-ingestion', 'global')
     console.error('Ingest trigger error:', err)
     res.status(500).json({ error: 'Failed to trigger ingestion' })
   }

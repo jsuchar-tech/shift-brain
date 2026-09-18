@@ -2,17 +2,26 @@ import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 import { requireAuth } from '../middleware/auth.js'
-import { rateLimitPerUser } from '../middleware/rateLimit.js'
+import { rateLimitPerUser, rateLimitUploads } from '../middleware/rateLimit.js'
 import { embedQuery } from '../lib/voyage.js'
 import { retrieveChunks, formatChunksForPrompt, formatChunksForCitation } from '../lib/retrieval.js'
 import { checkTokenLimits } from '../lib/tokenCheck.js'
 import { checkSafetyTriggers } from '../lib/safety.js'
 import { buildSystemPrompt } from '../lib/systemPrompt.js'
 import { detectLanguage } from '../lib/detectLanguage.js'
-import { getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
+import { conversationBelongsToUser, getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
 import { supabase } from '../lib/supabase.js'
+import {
+  cleanupExpiredUploads,
+  markUploadAttached,
+  registerPendingUpload,
+  resolvePendingUpload,
+  scanUpload,
+  validateUpload
+} from '../lib/uploadSecurity.js'
 import multer from 'multer'
 import dotenv from 'dotenv'
+import { randomUUID } from 'node:crypto'
 
 dotenv.config()
 
@@ -42,17 +51,29 @@ const upload = multer({
   }
 })
 
+function parseSingleUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    upload.single('file')(req, res, error => error ? reject(error) : resolve())
+  })
+}
+
 // POST /chat/upload
-router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+router.post('/upload', requireAuth, rateLimitUploads, async (req, res) => {
+  let storagePath = null
   try {
+    await parseSingleUpload(req, res)
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' })
     }
 
-    const { originalname, mimetype, buffer, size } = req.file
-    const timestamp = Date.now()
-    const safeName = originalname.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const storagePath = `${req.user.id}/${timestamp}_${safeName}`
+    await validateUpload(req.file)
+    await scanUpload(req.file)
+
+    const originalname = req.file.originalname.slice(0, 255)
+    req.file.originalname = originalname
+    const { mimetype, buffer, size } = req.file
+    const safeName = originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'upload'
+    storagePath = `${req.user.id}/${randomUUID()}_${safeName}`
 
     const { error: uploadError } = await supabase.storage
       .from('attachments')
@@ -63,15 +84,31 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
 
     if (uploadError) throw uploadError
 
-    res.json({
+    const expiresAt = await registerPendingUpload({
+      userId: req.user.id,
+      storagePath,
+      file: req.file
+    })
+
+    void cleanupExpiredUploads()
+
+    res.status(201).json({
       storage_path: storagePath,
       file_name: originalname,
       file_type: mimetype,
-      file_size: size
+      file_size: size,
+      expires_at: expiresAt
     })
   } catch (err) {
     console.error('Upload error:', err)
-    res.status(500).json({ error: 'Failed to upload file' })
+    if (storagePath) {
+      await supabase.storage.from('attachments').remove([storagePath]).catch(() => {})
+    }
+    const invalidUpload = err?.name === 'MulterError' || [
+      'MALWARE_DETECTED'
+    ].includes(err?.code) || /invalid|not supported|exceeds|safe processing|security scan/i.test(err?.message || '')
+    const status = err?.code === 'SCANNER_UNAVAILABLE' ? 503 : (invalidUpload ? 400 : 500)
+    res.status(status).json({ error: status === 500 ? 'Failed to upload file' : err.message })
   }
 })
 
@@ -95,7 +132,7 @@ async function getFileAsBase64(storagePath) {
 async function extractDocxText(buffer) {
   try {
     const result = await mammoth.extractRawText({ buffer })
-    return result.value || ''
+    return (result.value || '').slice(0, 150_000)
   } catch (err) {
     console.error('DOCX extraction failed:', err)
     return ''
@@ -154,7 +191,7 @@ async function buildUserMessageContent(message, attachment) {
 
 router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
   const startTime = Date.now()
-  const { message, conversation_id, attachment = null } = req.body
+  const { message, conversation_id, attachment: requestedAttachment = null } = req.body
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return res.status(400).json({ error: 'Message is required' })
@@ -166,14 +203,18 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     })
   }
 
+  if (conversation_id !== undefined && conversation_id !== null && typeof conversation_id !== 'string') {
+    return res.status(400).json({ error: 'Invalid conversation' })
+  }
+
   // Attachments are only ever valid if they live under this user's own
   // storage prefix. storage_path is client-supplied, so without this
   // check a user could pass another user's path and have the server
   // read and forward that person's file to Claude on their behalf.
-  if (attachment) {
+  if (requestedAttachment) {
     if (
-      typeof attachment.storage_path !== 'string' ||
-      !attachment.storage_path.startsWith(`${req.user.id}/`)
+      typeof requestedAttachment.storage_path !== 'string' ||
+      !requestedAttachment.storage_path.startsWith(`${req.user.id}/`)
     ) {
       return res.status(403).json({ error: 'Invalid attachment' })
     }
@@ -183,8 +224,27 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
   // trusting a client-supplied value — this also removes the need for
   // a manual language toggle in the UI.
   const language = detectLanguage(message)
+  let requestController = null
+  let requestTimeout = null
+  let abortOnDisconnect = null
 
   try {
+    // Participant chat requests may only continue conversations owned by that
+    // participant. Curator/admin conversation routes remain intentionally
+    // unrestricted and are not affected by this check.
+    if (conversation_id) {
+      const ownsConversation = await conversationBelongsToUser(conversation_id, req.user.id)
+      if (!ownsConversation) {
+        return res.status(404).json({ error: 'Conversation not found' })
+      }
+    }
+
+    let attachment = null
+    if (requestedAttachment) {
+      attachment = await resolvePendingUpload(requestedAttachment.storage_path, req.user.id)
+      if (!attachment) return res.status(403).json({ error: 'Invalid or expired attachment' })
+    }
+
     const limitCheck = await checkTokenLimits(req.user.id)
     if (!limitCheck.allowed) {
       return res.status(429).json({
@@ -221,10 +281,13 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       convId = conversation.id
     }
 
+    // Load prior turns before saving the current question so it is not sent to
+    // the model twice (once as history and once with retrieved context).
+    const history = await getConversationHistory(convId)
     const userMessage = await saveMessage(convId, 'user', message, { language })
 
     if (attachment) {
-      await supabase.from('message_attachments').insert({
+      const { error: attachmentError } = await supabase.from('message_attachments').insert({
         message_id: userMessage.id,
         conversation_id: convId,
         user_id: req.user.id,
@@ -233,10 +296,19 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
         file_size: attachment.file_size,
         storage_path: attachment.storage_path
       })
+      if (attachmentError) throw attachmentError
+      await markUploadAttached(attachment.storage_path)
     }
 
-    const queryEmbedding = await embedQuery(message)
-    const chunks = await retrieveChunks(queryEmbedding, message)
+    requestController = new AbortController()
+    requestTimeout = setTimeout(() => requestController.abort(new Error('Chat request timed out')), 120_000)
+    abortOnDisconnect = () => {
+      if (!res.writableEnded) requestController.abort(new Error('Client disconnected'))
+    }
+    res.once('close', abortOnDisconnect)
+
+    const queryEmbedding = await embedQuery(message, { signal: requestController.signal })
+    const chunks = await retrieveChunks(queryEmbedding, message, { signal: requestController.signal })
 
     if (process.env.DEBUG_RETRIEVAL === 'true') {
       console.log('Retrieved chunks (after reranking):')
@@ -250,8 +322,6 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
 
     const contextText = formatChunksForPrompt(chunks)
     const citationData = formatChunksForCitation(chunks)
-
-    const history = await getConversationHistory(convId)
 
     const userContent = await buildUserMessageContent(
       `Here are relevant excerpts from SHIFT's documents:\n\n${contextText}\n\n---\n\nBased on the above documents, please answer this question:\n\n${message}`,
@@ -276,7 +346,7 @@ const stream = anthropic.messages.stream({
   max_tokens: 2048,
   system: buildSystemPrompt(),   // ← was buildSystemPrompt(language)
   messages
-})
+}, { signal: requestController.signal })
 
     stream.on('text', (text) => {
       fullResponse += text
@@ -311,6 +381,9 @@ const stream = anthropic.messages.stream({
     }
     res.write(`data: ${JSON.stringify({ type: 'error', message: 'Something went wrong. Please try again.' })}\n\n`)
     res.end()
+  } finally {
+    if (requestTimeout) clearTimeout(requestTimeout)
+    if (abortOnDisconnect) res.off('close', abortOnDisconnect)
   }
 })
 

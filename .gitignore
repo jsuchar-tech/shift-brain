@@ -1,8 +1,15 @@
 .env
-  google-credentials.json
-  node_modules/
-  __pycache__/
-  .python-version
-  *.pyc
+.env.*
+!.env.example
+google-credentials.json
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+.python-version
+*.pyc
+*.pyo
+*.zip
 widget/.env
-widget/node_modules/
+api/public/widget.js.map
+

@@ -1,7 +1,6 @@
 import { Router } from 'express'
-import { verifyToken } from '@clerk/backend'
-import { clerkClient } from '../lib/clerk.js'
-import { clerkProfile } from '../lib/clerkProfile.js'
+import { clerkClient, verifySessionToken } from '../lib/clerk.js'
+import { clerkProfile, verifiedPrimaryEmail } from '../lib/clerkProfile.js'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth } from '../middleware/auth.js'
 
@@ -17,17 +16,19 @@ router.post('/sync', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1]
-    const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY })
+    const payload = await verifySessionToken(token)
     if (!payload) return res.status(401).json({ error: 'Invalid token' })
 
     const clerkUserId = payload.sub
     const registrationPending = req.body?.registration_pending === true
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('users')
       .select('*')
       .eq('clerk_user_id', clerkUserId)
       .maybeSingle()
+
+    if (existingError) throw existingError
 
     if (existing) {
       if (registrationPending) {
@@ -46,31 +47,31 @@ router.post('/sync', async (req, res) => {
     }
 
     const clerkUser = await clerkClient.users.getUser(clerkUserId)
+    const verifiedEmail = verifiedPrimaryEmail(clerkUser)
+    if (!verifiedEmail) {
+      return res.status(400).json({
+        error: 'A verified email address is required',
+        code: 'VERIFIED_EMAIL_REQUIRED'
+      })
+    }
     const profile = clerkProfile(clerkUser, req.body)
     const requiresApproval = registrationPending || clerkUser?.unsafeMetadata?.approval_required === true
 
     // Recover accounts created in Clerk before local synchronization finished.
     // A verified matching email is safe to reconnect, while preserving all
     // locally curated participant fields and approval status.
-    if (profile.work_email) {
-      const { data: emailMatch, error: emailLookupError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('work_email', profile.work_email)
-        .maybeSingle()
+    if (verifiedEmail) {
+      const { data: linkedUser, error: linkError } = await supabase.rpc(
+        'link_verified_clerk_user',
+        {
+          p_clerk_user_id: clerkUserId,
+          p_verified_email: verifiedEmail,
+          p_require_approval: requiresApproval
+        }
+      )
 
-      if (emailLookupError) throw emailLookupError
-      if (emailMatch) {
-        const { data: linkedUser, error: linkError } = await supabase
-          .from('users')
-          .update({ clerk_user_id: clerkUserId, ...(requiresApproval ? { is_active: false } : {}) })
-          .eq('id', emailMatch.id)
-          .select()
-          .single()
-
-        if (linkError) throw linkError
-        return res.json({ message: 'User linked', user: linkedUser })
-      }
+      if (linkError) throw linkError
+      if (linkedUser) return res.json({ message: 'User linked', user: linkedUser })
     }
 
     const { data: user, error } = await supabase
@@ -105,7 +106,7 @@ router.post('/sync', async (req, res) => {
     res.json({ message: 'User created', user })
   } catch (err) {
     console.error('Sync error:', err)
-    res.status(500).json({ error: 'Failed to sync user', details: err.message, code: err.code || 'USER_SYNC_FAILED' })
+    res.status(500).json({ error: 'Failed to sync user', code: 'USER_SYNC_FAILED' })
   }
 })
 

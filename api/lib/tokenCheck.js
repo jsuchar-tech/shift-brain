@@ -1,18 +1,33 @@
 import { supabase } from './supabase.js'
 
 export async function checkTokenLimits(userId) {
-  // Bypass token limits during testing
   if (process.env.DISABLE_TOKEN_LIMITS === 'true') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('DISABLE_TOKEN_LIMITS must not be enabled in production')
+    }
     return { allowed: true }
   }
+
   const { data, error } = await supabase
     .from('user_token_usage')
     .select('*')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
-  if (error) {
-    // No usage record yet — user is within limits
+  if (error) throw error
+
+  // A new account can legitimately have no usage row yet, but it must still
+  // have a configured token-limit record. Other missing/error states fail
+  // closed instead of silently granting unlimited model access.
+  if (!data) {
+    const { data: limits, error: limitsError } = await supabase
+      .from('token_limits')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (limitsError) throw limitsError
+    if (!limits) throw new Error('Token limits are not configured for this account')
     return { allowed: true, usage: null }
   }
 

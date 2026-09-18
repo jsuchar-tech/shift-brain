@@ -16,6 +16,10 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3000
 
+// Railway terminates TLS at one trusted proxy. This makes req.ip useful for
+// public-endpoint abuse controls without trusting arbitrary forwarded hops.
+app.set('trust proxy', 1)
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
@@ -84,4 +88,3 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`SHIFT Brain API running on port ${PORT}`)
 })
-

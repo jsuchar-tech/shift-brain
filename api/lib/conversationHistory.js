@@ -1,6 +1,20 @@
 import { supabase } from './supabase.js'
 
-const MAX_HISTORY_TURNS = 6  // last 6 turns (3 exchanges)
+const MAX_HISTORY_TURNS = 6
+
+export async function conversationBelongsToUser(conversationId, userId) {
+  if (!conversationId || !userId) return false
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  return Boolean(data)
+}
 
 export async function getConversationHistory(conversationId) {
   if (!conversationId) return []
@@ -9,28 +23,19 @@ export async function getConversationHistory(conversationId) {
     .from('messages')
     .select('role, content')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(MAX_HISTORY_TURNS)
 
-  if (error || !data) return []
-
-  return data.map(msg => ({
-    role: msg.role,
-    content: msg.content
-  }))
+  if (error) throw error
+  return (data || []).reverse().map(msg => ({ role: msg.role, content: msg.content }))
 }
 
 export async function createConversation(userId, firstMessage, language) {
-  // Auto-title from first 60 chars of first message
   const title = firstMessage.slice(0, 60) + (firstMessage.length > 60 ? '...' : '')
 
   const { data, error } = await supabase
     .from('conversations')
-    .insert({
-      user_id: userId,
-      title,
-      language
-    })
+    .insert({ user_id: userId, title, language })
     .select()
     .single()
 

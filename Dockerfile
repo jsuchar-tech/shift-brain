@@ -1,21 +1,27 @@
-# Start with a Node.js base
-FROM node:22-slim
+FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
 
-# Install Python and pip
-RUN apt-get update && apt-get install -y python3 python3-pip python3-venv && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:${PATH}"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv
 
 WORKDIR /app
 
-# Copy and install Python dependencies
-COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy and install Node dependencies
-COPY package*.json ./
-RUN npm ci
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts \
+    && npm cache clean --force
 
-# Copy the rest of the application
-COPY . .
+COPY --chown=node:node . .
 
-# Set your start command (change index.js to your actual entry point)
+USER node
+
+EXPOSE 3000
 CMD ["node", "api/server.js"]

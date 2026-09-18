@@ -1,41 +1,94 @@
-const activeRequests = new Map()      // userId -> lock timestamp
-const requestTimestamps = new Map()   // userId -> [timestamps]
+import { supabase } from '../lib/supabase.js'
 
-const LOCK_TIMEOUT_MS = 2 * 60 * 1000 // backstop in case finish/close never fires
-const WINDOW_MS = 60 * 1000
-const MAX_PER_WINDOW = 8
+async function acquireGuard({ scope, key, limit, windowSeconds, lockSeconds = 0, exclusive = false }) {
+  const { data, error } = await supabase.rpc('acquire_request_guard', {
+    p_scope: scope,
+    p_guard_key: String(key),
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+    p_lock_seconds: lockSeconds,
+    p_exclusive: exclusive
+  })
 
-export function rateLimitPerUser(req, res, next) {
-  const userId = req.user?.id
-  if (!userId) return next()
+  if (error) throw error
+  return data
+}
 
-  const now = Date.now()
+export async function releaseGuard(scope, key) {
+  const { error } = await supabase.rpc('release_request_guard', {
+    p_scope: scope,
+    p_guard_key: String(key)
+  })
+  if (error) console.error(`Failed to release ${scope} request guard:`, error)
+}
 
-  // Concurrency lock — with a timeout backstop so a crashed/hung
-  // request can't permanently lock a user out.
-  const lockedAt = activeRequests.get(userId)
-  if (lockedAt && now - lockedAt < LOCK_TIMEOUT_MS) {
-    return res.status(429).json({
-      error: 'Please wait for your current request to complete'
-    })
+function distributedRateLimit({ scope, limit, windowSeconds, lockSeconds = 0, exclusive = false }) {
+  return async function enforceRateLimit(req, res, next) {
+    const key = req.user?.id
+    if (!key) return next()
+
+    try {
+      const result = await acquireGuard({
+        scope,
+        key,
+        limit,
+        windowSeconds,
+        lockSeconds,
+        exclusive
+      })
+
+      if (!result?.allowed) {
+        const isActive = result?.reason === 'active'
+        return res.status(429).json({
+          error: isActive
+            ? 'Please wait for your current request to complete'
+            : 'Too many requests. Please slow down and try again shortly.',
+          retry_after_seconds: result?.retry_after_seconds || 1
+        })
+      }
+
+      if (exclusive) {
+        let released = false
+        const release = () => {
+          if (released) return
+          released = true
+          void releaseGuard(scope, key)
+        }
+        res.once('finish', release)
+        res.once('close', release)
+      }
+
+      return next()
+    } catch (error) {
+      console.error(`${scope} rate-limit error:`, error)
+      return res.status(503).json({
+        error: 'Request protection is temporarily unavailable. Please try again shortly.'
+      })
+    }
   }
+}
 
-  // Sliding-window burst limit — the lock above only stops overlapping
-  // requests, not rapid-fire sequential ones.
-  const timestamps = (requestTimestamps.get(userId) || []).filter(t => now - t < WINDOW_MS)
-  if (timestamps.length >= MAX_PER_WINDOW) {
-    return res.status(429).json({
-      error: 'Too many requests. Please slow down and try again shortly.'
-    })
-  }
-  timestamps.push(now)
-  requestTimestamps.set(userId, timestamps)
+export const rateLimitPerUser = distributedRateLimit({
+  scope: 'chat',
+  limit: 8,
+  windowSeconds: 60,
+  lockSeconds: 120,
+  exclusive: true
+})
 
-  activeRequests.set(userId, now)
+export const rateLimitUploads = distributedRateLimit({
+  scope: 'upload',
+  limit: 10,
+  windowSeconds: 10 * 60
+})
 
-  const release = () => activeRequests.delete(userId)
-  res.on('finish', release)
-  res.on('close', release)
-
-  next()
+export async function acquireGlobalGuard(scope, lockSeconds) {
+  return acquireGuard({
+    scope,
+    key: 'global',
+    limit: 1,
+    windowSeconds: lockSeconds,
+    lockSeconds,
+    exclusive: true
+  })
 }

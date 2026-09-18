@@ -94,16 +94,52 @@ async function readSettings() {
   return cleanSettings(data?.value || {})
 }
 
+const PUBLIC_CACHE_MS = 5 * 60 * 1000
+const PUBLIC_RATE_WINDOW_MS = 60 * 1000
+const PUBLIC_RATE_LIMIT = 60
+let settingsCache = { value: null, expiresAt: 0 }
+const publicRequestWindows = new Map()
+
+function publicConfigRateLimit(req, res, next) {
+  const now = Date.now()
+  if (publicRequestWindows.size > 1_000) {
+    for (const [windowKey, window] of publicRequestWindows) {
+      if (window.resetAt <= now) publicRequestWindows.delete(windowKey)
+    }
+  }
+  const key = req.ip || 'unknown'
+  const current = publicRequestWindows.get(key)
+  if (!current || current.resetAt <= now) {
+    publicRequestWindows.set(key, { count: 1, resetAt: now + PUBLIC_RATE_WINDOW_MS })
+    return next()
+  }
+  if (current.count >= PUBLIC_RATE_LIMIT) {
+    return res.status(429).json({ error: 'Too many configuration requests' })
+  }
+  current.count += 1
+  return next()
+}
+
+async function readCachedSettings() {
+  if (settingsCache.value && settingsCache.expiresAt > Date.now()) {
+    return settingsCache.value
+  }
+  const settings = await readSettings()
+  settingsCache = { value: settings, expiresAt: Date.now() + PUBLIC_CACHE_MS }
+  return settings
+}
+
 export const publicSettingsRouter = Router()
-publicSettingsRouter.get('/', async (req, res) => {
+publicSettingsRouter.get('/', publicConfigRateLimit, async (req, res) => {
   try {
-    const settings = await readSettings()
-    res.set('Cache-Control', 'no-store')
+    const settings = await readCachedSettings()
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
     res.json({ settings })
   } catch (err) {
     // Keep the public login usable even before the settings table is created.
     console.error('Public settings error:', err)
-    res.set('Cache-Control', 'no-store')
+    settingsCache = { value: DEFAULT_SETTINGS, expiresAt: Date.now() + 60_000 }
+    res.set('Cache-Control', 'public, max-age=30')
     res.json({ settings: DEFAULT_SETTINGS })
   }
 })
@@ -113,7 +149,7 @@ adminSettingsRouter.use(requireAuth, requireAdmin)
 
 adminSettingsRouter.get('/', async (req, res) => {
   try {
-    res.json({ settings: await readSettings() })
+    res.json({ settings: await readCachedSettings() })
   } catch (err) {
     console.error('Admin settings read error:', err)
     res.status(500).json({ error: 'Failed to load settings' })
@@ -130,7 +166,9 @@ adminSettingsRouter.patch('/', async (req, res) => {
       .single()
 
     if (error) throw error
-    res.json({ settings: cleanSettings(data?.value || settings) })
+    const savedSettings = cleanSettings(data?.value || settings)
+    settingsCache = { value: savedSettings, expiresAt: Date.now() + PUBLIC_CACHE_MS }
+    res.json({ settings: savedSettings })
   } catch (err) {
     console.error('Admin settings save error:', err)
     res.status(500).json({ error: 'Failed to save settings' })
