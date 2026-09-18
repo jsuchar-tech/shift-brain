@@ -84,16 +84,17 @@ export async function streamChat({
   message,
   conversationId,
   attachment = null,
+  onConversationId,
   onText,
   onReaction,
   onCitations,
   onDone,
   onError
 }) {
-  const token = await getToken()
-
+  let token
   let res
   try {
+    token = await getToken()
     res = await fetch(`${API_URL}/chat`, {
       method: 'POST',
       headers: {
@@ -113,7 +114,11 @@ export async function streamChat({
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Request failed' }))
-    onError(err)
+    onError({
+      ...err,
+      status: res.status,
+      message: err.message || err.error || `Request failed (${res.status})`
+    })
     return null
   }
 
@@ -123,6 +128,7 @@ export async function streamChat({
     if (data.reaction_emoji) {
       onReaction?.({ emoji: data.reaction_emoji, messageId: data.message_id || null })
     }
+    if (data.conversation_id) onConversationId?.(data.conversation_id)
     if (data.response) onText(data.response)
     onDone(data)
     return data.conversation_id || null
@@ -144,6 +150,7 @@ export async function streamChat({
       const data = JSON.parse(line.slice(6))
       if (data.type === 'conversation_id') {
         conversationId_returned = data.conversation_id
+        onConversationId?.(data.conversation_id)
       } else if (data.type === 'text') {
         onText(data.text)
       } else if (data.type === 'reaction') {

@@ -2,7 +2,7 @@ import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 import { requireAuth } from '../middleware/auth.js'
-import { rateLimitPerUser, rateLimitUploads } from '../middleware/rateLimit.js'
+import { rateLimitPerUser, rateLimitUploads, releaseGuard } from '../middleware/rateLimit.js'
 import { embedQuery } from '../lib/voyage.js'
 import { retrieveChunks, formatChunksForPrompt, formatChunksForCitation } from '../lib/retrieval.js'
 import { checkTokenLimits } from '../lib/tokenCheck.js'
@@ -414,6 +414,11 @@ const stream = anthropic.messages.stream({
       latency_ms: latencyMs,
       language
     })
+
+    // Release the exclusive request lock before telling the client that the
+    // chat is ready for another message. The middleware also releases it on
+    // finish/close, so this is safe and removes the follow-up request race.
+    await releaseGuard('chat', req.user.id)
 
     res.write(`data: ${JSON.stringify({ type: 'citations', citations: citationData })}\n\n`)
     res.write(`data: ${JSON.stringify({ type: 'done', tokens_in: inputTokens, tokens_out: outputTokens, latency_ms: latencyMs })}\n\n`)

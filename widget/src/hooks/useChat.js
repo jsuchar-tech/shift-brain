@@ -58,73 +58,87 @@ export function useChat(getToken) {
         }
       ])
 
-      const newConvId = await streamChat({
-        getToken,
-        message: text,
-        conversationId,
-        attachment,
+      let newConvId = null
 
-        onText: chunk => {
-          pendingText += chunk
-          if (animationFrame === null) {
-            animationFrame = requestAnimationFrame(() => {
-              animationFrame = null
-              flushPendingText()
-            })
+      try {
+        newConvId = await streamChat({
+          getToken,
+          message: text,
+          conversationId,
+          attachment,
+
+          onConversationId: id => {
+            if (id) setConversationId(id)
+          },
+
+          onText: chunk => {
+            pendingText += chunk
+            if (animationFrame === null) {
+              animationFrame = requestAnimationFrame(() => {
+                animationFrame = null
+                flushPendingText()
+              })
+            }
+          },
+
+          onReaction: ({ emoji }) => {
+            if (!emoji) return
+            setMessages(prev => prev.map(msg =>
+              msg.id === userId ? { ...msg, reactionEmoji: emoji } : msg
+            ))
+          },
+
+          onCitations: cits => {
+            cancelPendingFrame()
+
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === assistantId
+                  ? {
+                      ...msg,
+                      streaming: false,
+                      citations: cits
+                    }
+                  : msg
+              )
+            )
+          },
+
+          onDone: () => {
+            cancelPendingFrame()
+
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === assistantId
+                  ? {
+                      ...msg,
+                      streaming: false
+                    }
+                  : msg
+              )
+            )
+          },
+
+          onError: err => {
+            if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+            animationFrame = null
+            pendingText = ''
+            setError(err.message || err.error || 'Something went wrong')
+
+            setMessages(prev =>
+              prev.filter(msg => msg.id !== assistantId)
+            )
           }
-        },
-
-        onReaction: ({ emoji }) => {
-          if (!emoji) return
-          setMessages(prev => prev.map(msg =>
-            msg.id === userId ? { ...msg, reactionEmoji: emoji } : msg
-          ))
-        },
-
-        onCitations: cits => {
-          cancelPendingFrame()
-
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === assistantId
-                ? {
-                    ...msg,
-                    streaming: false,
-                    citations: cits
-                  }
-                : msg
-            )
-          )
-        },
-
-        onDone: () => {
-          cancelPendingFrame()
-          setIsLoading(false)
-
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === assistantId
-                ? {
-                    ...msg,
-                    streaming: false
-                  }
-                : msg
-            )
-          )
-        },
-
-        onError: err => {
-          if (animationFrame !== null) cancelAnimationFrame(animationFrame)
-          animationFrame = null
-          pendingText = ''
-          setIsLoading(false)
-          setError(err.message || 'Something went wrong')
-
-          setMessages(prev =>
-            prev.filter(msg => msg.id !== assistantId)
-          )
-        }
-      })
+        })
+      } catch (err) {
+        if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+        animationFrame = null
+        pendingText = ''
+        setError(err?.message || 'Unable to send your message. Please try again.')
+        setMessages(prev => prev.filter(msg => msg.id !== assistantId))
+      } finally {
+        setIsLoading(false)
+      }
 
       if (newConvId && !conversationId) {
         setConversationId(newConvId)
