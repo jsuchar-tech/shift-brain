@@ -351,6 +351,8 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     const reactionPromise = selectMessageReaction(anthropic, message, {
       signal: reactionSignal
     }).then(async reactionEmoji => {
+      if (!reactionEmoji) return null
+
       const { error: reactionError } = await supabase
         .from('messages')
         .update({ reaction_emoji: reactionEmoji })
@@ -367,7 +369,7 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     // Deliver the reaction as soon as it is ready instead of holding it behind
     // embedding and reranking work.
     const reactionDelivery = reactionPromise.then(reactionEmoji => {
-      if (!res.writableEnded) {
+      if (reactionEmoji && !res.writableEnded) {
         res.write(`data: ${JSON.stringify({
           type: 'reaction',
           message_id: userMessage.id,

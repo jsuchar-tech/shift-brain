@@ -5,7 +5,17 @@ const REACTION_EMOJIS = [
 
 const DEFAULT_REACTION = '👍'
 
+function reactionProbability() {
+  const configured = Number(process.env.REACTION_PROBABILITY)
+  if (!Number.isFinite(configured)) return 0.3
+  return Math.max(0, Math.min(1, configured))
+}
+
 export async function selectMessageReaction(anthropic, message, { signal } = {}) {
+  // Most messages intentionally receive no reaction. The probability check
+  // happens before the model call, so skipped reactions cost nothing.
+  if (Math.random() >= reactionProbability()) return null
+
   try {
     const response = await anthropic.messages.create({
       model: process.env.REACTION_MODEL || 'claude-haiku-4-5-20251001',
@@ -30,4 +40,4 @@ export async function selectMessageReaction(anthropic, message, { signal } = {})
   }
 }
 
-export { DEFAULT_REACTION, REACTION_EMOJIS }
+export { DEFAULT_REACTION, REACTION_EMOJIS, reactionProbability }

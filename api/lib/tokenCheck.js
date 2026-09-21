@@ -57,6 +57,10 @@ export async function checkTokenLimits(userId) {
   return {
     allowed: true,
     daily_remaining: dailyRemaining,
-    monthly_remaining: monthlyRemaining
+    monthly_remaining: monthlyRemaining,
+    daily_limit: data.daily_limit,
+    monthly_limit: data.monthly_limit,
+    tokens_used_today: data.tokens_used_today,
+    tokens_used_this_month: data.tokens_used_this_month
   }
 }

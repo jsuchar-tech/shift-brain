@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 function citationLabel(citation) {
   if (citation.page_number) return `Page ${citation.page_number}`
   if (citation.slide_number) return `Slide ${citation.slide_number}`
@@ -7,12 +9,11 @@ function citationLabel(citation) {
 function Citation({ citation, index }) {
   const content = (
     <>
-      <span className="brain-sources__number">{String(index + 1).padStart(2, '0')}</span>
+      <span className="brain-sources__arrow" aria-hidden="true">↗</span>
       <span className="brain-sources__content">
         <strong>{citation.file_name || 'Source'}</strong>
-        <small>{citationLabel(citation)}</small>
       </span>
-      {citation.source_url && <span className="brain-sources__arrow" aria-hidden="true">↗</span>}
+      <small className="brain-sources__location">{citationLabel(citation)}</small>
     </>
   )
 
@@ -26,63 +27,70 @@ function Citation({ citation, index }) {
 }
 
 export default function SourceCitations({ citations }) {
+  const [expanded, setExpanded] = useState(false)
   if (!citations?.length) return null
+
+  const visibleCitations = expanded ? citations : citations.slice(0, 3)
+  const hasMore = citations.length > 3
 
   return (
     <section className="brain-sources" aria-label="Sources">
-      <div className="brain-sources__heading">
-        <span>SOURCES</span>
-        <span>{citations.length}</span>
-      </div>
       <div className="brain-sources__list">
-        {citations.map((citation, index) => (
+        {visibleCitations.map((citation, index) => (
           <Citation key={`${citation.file_name || 'source'}-${index}`} citation={citation} index={index} />
         ))}
       </div>
+      {hasMore && (
+        <button
+          className="brain-sources__view-all"
+          type="button"
+          onClick={() => setExpanded(value => !value)}
+          aria-expanded={expanded}
+        >
+          {expanded ? 'VIEW LESS' : 'VIEW ALL'}
+        </button>
+      )}
 
       <style>{`
-        .brain-sources { width: 100%; margin-top: 27px; padding-top: 15px; border-top: 1px solid var(--line, #deddd5); }
-        .brain-sources__heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 10px;
-          color: var(--pink, #ff008f);
-          font: 700 10px/18px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-        .brain-sources__heading span:last-child {
-          display: grid;
-          width: 20px;
-          height: 20px;
-          place-items: center;
-          border: 1px solid var(--pink, #ff008f);
-          border-radius: 50%;
-          font-size: 9px;
-        }
-        .brain-sources__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .brain-sources { width: 100%; margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line, #deddd5); }
+        .brain-sources__list { display: flex; flex-direction: column; }
         .brain-sources__item {
           display: flex;
           align-items: center;
           min-width: 0;
-          min-height: 54px;
-          gap: 10px;
-          padding: 9px 11px;
-          border: 1px solid rgba(222,221,213,.85);
-          border-radius: 10px;
-          background: var(--white, #fff);
+          min-height: 27px;
+          gap: 8px;
+          padding: 3px 0;
+          border: 0;
+          background: transparent;
           color: var(--ink, #0b0b2d);
           text-decoration: none;
-          box-shadow: 3px 5px 10px -1px rgba(0,0,0,.035);
         }
-        a.brain-sources__item:hover { border-color: var(--pink, #ff008f); }
-        .brain-sources__number { flex: 0 0 auto; color: var(--pink, #ff008f); font: 600 10px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        a.brain-sources__item:hover .brain-sources__content strong,
+        a.brain-sources__item:hover .brain-sources__location { color: var(--pink, #ff008f); }
         .brain-sources__content { min-width: 0; flex: 1; }
-        .brain-sources__content strong,
-        .brain-sources__content small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .brain-sources__content strong { font-size: 11px; font-weight: 500; line-height: 16px; }
-        .brain-sources__content small { color: #9d9d9d; font-size: 9px; line-height: 14px; }
-        .brain-sources__arrow { flex: 0 0 auto; color: var(--pink, #ff008f); font-size: 13px; }
-        @media (max-width: 560px) { .brain-sources__list { grid-template-columns: 1fr; } }
+        .brain-sources__content strong { display: block; overflow: hidden; color: var(--ink, #0b0b2d); font-size: 11px; font-weight: 400; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+        .brain-sources__location { flex: 0 0 auto; color: var(--muted, #b7b7b7); font-size: 9px; line-height: 18px; white-space: nowrap; }
+        .brain-sources__arrow { display: none; flex: 0 0 auto; color: var(--pink, #ff008f); font-size: 17px; font-weight: 600; line-height: 1; }
+        .brain-sources__view-all {
+          margin: 10px 0 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: var(--pink, #ff008f);
+          font: 700 10px/18px Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          text-align: left;
+          cursor: pointer;
+        }
+        .brain-sources__view-all:hover { color: var(--purple, #302798); }
+        @media (max-width: 767px) {
+          .brain-sources { margin-top: 29px; padding-top: 15px; }
+          .brain-sources__item { min-height: 32px; gap: 12px; padding: 4px 0; }
+          .brain-sources__arrow { display: block; }
+          .brain-sources__content strong { font-size: 11px; line-height: 20px; }
+          .brain-sources__location { display: none; }
+          .brain-sources__view-all { margin-top: 8px; }
+        }
       `}</style>
     </section>
   )

@@ -70,6 +70,9 @@ export default function ConversationSidebar({
       >
         {icons.sidebarClose ? <img className="brain-sidebar__custom-icon" src={icons.sidebarClose} alt="" /> : <span className="brain-sidebar__arrow" aria-hidden="true" />}
       </button>
+      <button className="brain-sidebar__desktop-new" type="button" onClick={startNewChat}>
+        Start new chat
+      </button>
       <div className="brain-sidebar__content">
         <div className="brain-sidebar__title">Your chat history</div>
         <div className="brain-sidebar__tools">
@@ -190,8 +193,31 @@ export default function ConversationSidebar({
           transition: opacity .2s ease, transform .38s cubic-bezier(.22, 1, .36, 1);
         }
 
+        .brain-sidebar__desktop-new {
+          position: relative;
+          z-index: 20;
+          flex: 0 0 67px;
+          width: var(--sidebar-width);
+          min-width: var(--sidebar-width);
+          padding: 0 52px;
+          border: 0;
+          border-bottom: 1px solid var(--line, #deddd5);
+          background: var(--cream, #fdfbef);
+          color: var(--pink, #ff008f);
+          font: 600 12px/1 Graphik, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          text-align: left;
+          white-space: nowrap;
+          cursor: pointer;
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+          transition: opacity .2s ease, transform .38s cubic-bezier(.22, 1, .36, 1), color .3s ease;
+        }
+
+        .brain-sidebar__desktop-new:hover { color: var(--purple, #302798); }
+
         .brain-sidebar.is-collapsed .brain-sidebar__content,
-        .brain-sidebar.is-collapsed .brain-sidebar__logout {
+        .brain-sidebar.is-collapsed .brain-sidebar__logout,
+        .brain-sidebar.is-collapsed .brain-sidebar__desktop-new {
           opacity: 0;
           transform: translate3d(-100%, 0, 0);
           pointer-events: none;
@@ -444,6 +470,7 @@ export default function ConversationSidebar({
           .brain-sidebar.is-collapsed .brain-sidebar__logout { opacity: 1; transform: translate3d(0, 0, 0); pointer-events: auto; }
           .brain-sidebar__content,
           .brain-sidebar__logout { width: 100%; min-width: 100%; }
+          .brain-sidebar__desktop-new { display: none; }
           .brain-sidebar__title { margin-left: 30px; }
           .brain-sidebar__list { padding-right: 30px; padding-left: 30px; }
           .brain-sidebar__collapse { display: none; }

@@ -112,18 +112,19 @@ function MessageBubble({ message, fontSize = 16, includeStyles = false }) {
 
         .brain-message__reaction {
           position: absolute;
-          right: 12px;
-          bottom: -16px;
+          right: 14px;
+          bottom: -12px;
           display: grid;
           place-items: center;
-          min-width: 32px;
-          height: 27px;
-          padding: 0 7px;
+          width: 22px;
+          min-width: 22px;
+          height: 22px;
+          padding: 0;
           border: 2px solid var(--cream, #fdfbef);
-          border-radius: 999px;
-          background: var(--yellow, #ffd000);
-          box-shadow: 0 2px 6px rgba(11, 11, 45, .1);
-          font-size: 16px;
+          border-radius: 50%;
+          background: var(--white, #fff);
+          box-shadow: none;
+          font-size: 13px;
           line-height: 1;
           transform-origin: 75% 100%;
           will-change: transform, opacity;

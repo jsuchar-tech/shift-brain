@@ -19,6 +19,19 @@ function nearestFontSizePreset(value) {
   )
 }
 
+function remainingUsagePercent(usage) {
+  const remaining = Number(usage?.daily_remaining)
+  if (!Number.isFinite(remaining)) return null
+
+  const explicitLimit = Number(usage?.daily_limit)
+  const usedToday = Number(usage?.tokens_used_today)
+  const inferredLimit = Number.isFinite(usedToday) ? remaining + usedToday : 30_000
+  const limit = Number.isFinite(explicitLimit) && explicitLimit > 0 ? explicitLimit : inferredLimit
+  if (!Number.isFinite(limit) || limit <= 0) return null
+
+  return Math.max(0, Math.min(100, Math.floor((remaining / limit) * 100)))
+}
+
 export default function Chat({ onOpenDashboard, settings, currentUser }) {
   const { getToken, signOut } = useAuth()
   const [uploadedFile, setUploadedFile] = useState(null)
@@ -39,6 +52,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
   } = useChat(getToken)
 
   const { usage, refresh: refreshUsage } = useTokenUsage(getToken)
+  const usagePercent = remainingUsagePercent(usage)
   const {
     conversations,
     refresh: refreshConversations,
@@ -219,7 +233,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
             onClearFile={() => setUploadedFile(null)}
             assets={assets}
             showWelcome={showWelcome}
-            tokensRemaining={usage?.daily_remaining}
+            usagePercent={usagePercent}
           />
         </div>
       </main>
