@@ -19,19 +19,6 @@ function nearestFontSizePreset(value) {
   )
 }
 
-function remainingUsagePercent(usage) {
-  const remaining = Number(usage?.daily_remaining)
-  if (!Number.isFinite(remaining)) return null
-
-  const explicitLimit = Number(usage?.daily_limit)
-  const usedToday = Number(usage?.tokens_used_today)
-  const inferredLimit = Number.isFinite(usedToday) ? remaining + usedToday : 30_000
-  const limit = Number.isFinite(explicitLimit) && explicitLimit > 0 ? explicitLimit : inferredLimit
-  if (!Number.isFinite(limit) || limit <= 0) return null
-
-  return Math.max(0, Math.min(100, Math.floor((remaining / limit) * 100)))
-}
-
 export default function Chat({ onOpenDashboard, settings, currentUser }) {
   const { getToken, signOut } = useAuth()
   const [uploadedFile, setUploadedFile] = useState(null)
@@ -52,7 +39,6 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
   } = useChat(getToken)
 
   const { usage, refresh: refreshUsage } = useTokenUsage(getToken)
-  const usagePercent = remainingUsagePercent(usage)
   const {
     conversations,
     refresh: refreshConversations,
@@ -233,7 +219,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
             onClearFile={() => setUploadedFile(null)}
             assets={assets}
             showWelcome={showWelcome}
-            usagePercent={usagePercent}
+            tokensRemaining={usage?.daily_remaining}
           />
         </div>
       </main>
@@ -487,10 +473,8 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
         .brain-chat__font-button:hover:not(.is-active) { background: rgba(255, 0, 143, .12); color: var(--pink); }
         .brain-chat__font-button.is-active:hover { background: var(--purple); }
         .brain-chat__sidebar-toggle:hover,
-        .brain-sidebar__collapse:hover,
         .brain-sidebar__mobile-close:hover { background: var(--purple); transform: rotate(-3deg); box-shadow: none; }
         .brain-chat__sidebar-toggle:hover .brain-chat__arrow,
-        .brain-sidebar__collapse:hover .brain-sidebar__arrow,
         .brain-sidebar__mobile-close:hover .brain-sidebar__arrow { border-color: var(--white); }
         .brain-sidebar__search:hover { background: var(--purple); color: var(--white); transform: rotate(-3deg); box-shadow: 4px 4px var(--ink); }
         .brain-sidebar__new:hover { border-color: var(--ink); background: var(--purple); color: var(--white); box-shadow: 4px 4px var(--ink); transform: rotate(-2deg); }

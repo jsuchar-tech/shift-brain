@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { API_URL } from '../lib/api'
+
+const SOURCE_ARROW_URL = `${API_URL}/assets/source-arrow.svg`
 
 function citationLabel(citation) {
   if (citation.page_number) return `Page ${citation.page_number}`
@@ -6,10 +9,14 @@ function citationLabel(citation) {
   return 'Open source'
 }
 
-function Citation({ citation, index }) {
+function Citation({ citation }) {
   const content = (
     <>
-      <span className="brain-sources__arrow" aria-hidden="true">↗</span>
+      <span
+        className="brain-sources__arrow"
+        style={{ '--source-arrow-url': `url("${SOURCE_ARROW_URL}")` }}
+        aria-hidden="true"
+      />
       <span className="brain-sources__content">
         <strong>{citation.file_name || 'Source'}</strong>
       </span>
@@ -37,7 +44,7 @@ export default function SourceCitations({ citations }) {
     <section className="brain-sources" aria-label="Sources">
       <div className="brain-sources__list">
         {visibleCitations.map((citation, index) => (
-          <Citation key={`${citation.file_name || 'source'}-${index}`} citation={citation} index={index} />
+          <Citation key={`${citation.file_name || 'source'}-${index}`} citation={citation} />
         ))}
       </div>
       {hasMore && (
@@ -71,7 +78,15 @@ export default function SourceCitations({ citations }) {
         .brain-sources__content { min-width: 0; flex: 1; }
         .brain-sources__content strong { display: block; overflow: hidden; color: var(--ink, #0b0b2d); font-size: 11px; font-weight: 400; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
         .brain-sources__location { flex: 0 0 auto; color: var(--muted, #b7b7b7); font-size: 9px; line-height: 18px; white-space: nowrap; }
-        .brain-sources__arrow { display: none; flex: 0 0 auto; color: var(--pink, #ff008f); font-size: 17px; font-weight: 600; line-height: 1; }
+        .brain-sources__arrow {
+          display: block;
+          flex: 0 0 13px;
+          width: 13px;
+          height: 13px;
+          background: var(--pink, #ff008f);
+          -webkit-mask: var(--source-arrow-url) center / contain no-repeat;
+          mask: var(--source-arrow-url) center / contain no-repeat;
+        }
         .brain-sources__view-all {
           margin: 10px 0 0;
           padding: 0;
@@ -86,7 +101,6 @@ export default function SourceCitations({ citations }) {
         @media (max-width: 767px) {
           .brain-sources { margin-top: 29px; padding-top: 15px; }
           .brain-sources__item { min-height: 32px; gap: 12px; padding: 4px 0; }
-          .brain-sources__arrow { display: block; }
           .brain-sources__content strong { font-size: 11px; line-height: 20px; }
           .brain-sources__location { display: none; }
           .brain-sources__view-all { margin-top: 8px; }

@@ -72,11 +72,14 @@ function MessageBubble({ message, fontSize = 16, includeStyles = false }) {
         .brain-message {
           display: flex;
           width: 100%;
+        }
+        .brain-message.is-user { justify-content: flex-end; margin-bottom: 31px; }
+        .brain-message.is-assistant {
+          justify-content: flex-start;
+          margin-bottom: 34px;
           content-visibility: auto;
           contain-intrinsic-size: auto 120px;
         }
-        .brain-message.is-user { justify-content: flex-end; margin-bottom: 31px; }
-        .brain-message.is-assistant { justify-content: flex-start; margin-bottom: 34px; }
 
         .brain-message__body {
           color: #000;

@@ -284,6 +284,7 @@ export default function ConversationSidebar({
         }
 
         .brain-sidebar__custom-icon { width: 18px; height: 18px; object-fit: contain; pointer-events: none; }
+        .brain-sidebar__collapse .brain-sidebar__custom-icon { width: 33px; height: 33px; }
 
         .brain-sidebar__new {
           display: flex;
@@ -322,6 +323,17 @@ export default function ConversationSidebar({
           box-shadow: none;
           cursor: pointer;
         }
+
+        .brain-sidebar__collapse:hover,
+        .brain-sidebar__collapse:active {
+          background: transparent;
+          box-shadow: none;
+          transform: none;
+          scale: 1;
+        }
+
+        .brain-sidebar__collapse::before,
+        .brain-sidebar__collapse::after { display: none !important; content: none !important; }
 
         .brain-sidebar__arrow {
           width: 9px;
