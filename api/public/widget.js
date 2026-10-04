@@ -990,7 +990,7 @@ ${t}`))};var Q_=({children:e,treatPendingAsSignedOut:t})=>{Or("SignedIn");const{
         .brain-chat__brain {
           position: static;
           width: 91px;
-          height: 81px;
+          height: auto;
           object-fit: cover;
           transform: none;
         }

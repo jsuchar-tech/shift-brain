@@ -385,7 +385,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
         .brain-chat__brain {
           position: static;
           width: 91px;
-          height: 81px;
+          height: auto;
           object-fit: cover;
           transform: none;
         }
