@@ -131,7 +131,7 @@ function ParticipantsTab({ getToken }) {
       setUsers(previous => previous.map(user => user.id === id
         ? { ...user, ...(data.user || {}), is_active: !is_active }
         : user))
-      setNotice(is_active ? 'Access revoked.' : 'Access granted. The participant can now open SHIFT Brain.')
+      setNotice(is_active ? 'Access revoked.' : 'Access granted. The account can now open SHIFT Brain.')
     } catch (updateError) {
       console.error(updateError)
       setError(updateError.message || 'Unable to update participant access.')
@@ -142,7 +142,7 @@ function ParticipantsTab({ getToken }) {
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
 
-  const pendingUsers = users.filter(user => !user.is_active && user.role !== 'admin')
+  const pendingUsers = users.filter(user => !user.is_active)
   const pendingCount = pendingUsers.length
 
   return (
@@ -212,7 +212,7 @@ function ParticipantsTab({ getToken }) {
                 <td style={{ padding: '10px 8px', color: '#666' }}>{u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}</td>
                 <td style={{ padding: '10px 8px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: u.is_active ? '#e6f4ea' : '#fff0f8', color: u.is_active ? '#2d7a3a' : '#ff008f' }}>{u.is_active ? 'Approved' : 'Pending approval'}</span></td>
                 <td style={{ padding: '10px 8px' }}>
-                  {u.role !== 'admin' && (
+                  {(u.role !== 'admin' || !u.is_active) && (
                     <button
                       className={`brain-admin-button ${u.is_active ? '' : 'brain-admin-button--primary'}`}
                       onClick={() => toggleUser(u.id, u.is_active)}

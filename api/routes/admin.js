@@ -113,12 +113,15 @@ async function syncUsersFromClerk() {
       const emailKey = verifiedEmail.toLowerCase()
       const existingByEmail = usersByEmail.get(emailKey)
       if (existingByEmail) {
+        // A legacy account may predate Clerk linking. Preserve its existing
+        // access unless Clerk explicitly identifies this as a new signup.
+        const requiresApproval = clerkUser?.unsafeMetadata?.approval_required === true
         const { data: linked, error: linkError } = await supabase.rpc(
           'link_verified_clerk_user',
           {
             p_clerk_user_id: clerkUser.id,
             p_verified_email: verifiedEmail,
-            p_require_approval: true
+            p_require_approval: requiresApproval
           }
         )
         if (linkError) throw linkError
