@@ -142,7 +142,8 @@ function ParticipantsTab({ getToken }) {
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
 
-  const pendingCount = users.filter(user => !user.is_active && user.role !== 'admin').length
+  const pendingUsers = users.filter(user => !user.is_active && user.role !== 'admin')
+  const pendingCount = pendingUsers.length
 
   return (
     <div className="brain-admin-tab">
@@ -159,6 +160,41 @@ function ParticipantsTab({ getToken }) {
 
       {error && <p className="brain-admin-feedback is-error" role="alert">{error}</p>}
       {notice && !error && <p className="brain-admin-feedback" aria-live="polite">{notice}</p>}
+
+      {pendingUsers.length > 0 && (
+        <section className="brain-admin-approvals" aria-labelledby="pending-approvals-title">
+          <div className="brain-admin-approvals__heading">
+            <div>
+              <p className="brain-admin-eyebrow">Action required</p>
+              <h3 id="pending-approvals-title">Pending approvals <span>{pendingUsers.length}</span></h3>
+            </div>
+            <p>Grant access after confirming the participant.</p>
+          </div>
+
+          <div className="brain-admin-approvals__list">
+            {pendingUsers.map(user => (
+              <article className="brain-admin-approval" key={user.id}>
+                <div className="brain-admin-approval__identity">
+                  <strong>{user.full_name || 'New participant'}</strong>
+                  <span>{user.work_email}</span>
+                  {(user.country_office || user.shifter_year) && (
+                    <small>{[user.country_office, user.shifter_year].filter(Boolean).join(' · ')}</small>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="brain-admin-button brain-admin-button--primary brain-admin-approval__button"
+                  onClick={() => toggleUser(user.id, false)}
+                  disabled={updatingId === user.id}
+                  aria-busy={updatingId === user.id}
+                >
+                  {updatingId === user.id ? 'Granting…' : 'Grant access'}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="brain-admin-table-wrap brain-admin-users-table-wrap">
         <table className="brain-admin-users-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -723,6 +759,18 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
       .brain-admin-notice span { color: var(--pink); word-break: break-all; }
       .brain-admin-feedback { margin: -10px 0 18px; padding: 10px 12px; border: 1px solid #cfe8d4; border-radius: 8px; background: #f2fbf4; color: var(--success); font-size: 12px; line-height: 18px; }
       .brain-admin-feedback.is-error { border-color: #fed7d7; background: #fff5f5; color: var(--danger); }
+      .brain-admin-approvals { margin: 0 0 24px; overflow: hidden; border: 1px solid #ffc3e3; border-radius: 12px; background: #fff5fa; }
+      .brain-admin-approvals__heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 17px 18px 14px; border-bottom: 1px solid #ffd7eb; }
+      .brain-admin-approvals__heading h3 { margin: 2px 0 0; color: var(--ink); font-size: 17px; font-weight: 500; }
+      .brain-admin-approvals__heading h3 span { display: inline-flex; align-items: center; justify-content: center; min-width: 21px; height: 21px; margin-left: 7px; padding: 0 6px; border-radius: 999px; background: var(--pink); color: var(--white); font-size: 10px; }
+      .brain-admin-approvals__heading > p { margin: 0; color: var(--muted); font-size: 11px; }
+      .brain-admin-approvals__list { display: grid; gap: 1px; background: #ffd7eb; }
+      .brain-admin-approval { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px; background: var(--cream); }
+      .brain-admin-approval__identity { display: grid; min-width: 0; gap: 2px; }
+      .brain-admin-approval__identity strong { overflow: hidden; color: var(--ink); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+      .brain-admin-approval__identity span { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+      .brain-admin-approval__identity small { color: var(--muted); font-size: 10px; }
+      .brain-admin-approval__button { flex: 0 0 auto; min-width: 112px; }
       .brain-admin-table-wrap { overflow-x: auto; border: 1px solid #efeee7; border-radius: 10px; }
       .brain-admin-users-table { min-width: 940px; }
       .brain-admin-users-table th:last-child,
@@ -805,6 +853,9 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
         .brain-dashboard__panel { padding: 17px 15px; border-radius: 11px; }
         .brain-admin-toolbar { align-items: flex-start; flex-direction: column; }
         .brain-admin-button--primary { align-self: stretch; }
+        .brain-admin-approvals__heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+        .brain-admin-approval { align-items: stretch; flex-direction: column; gap: 12px; }
+        .brain-admin-approval__button { width: 100%; }
         .brain-admin-conversations { grid-template-columns: 1fr; height: auto; max-height: none; overflow: visible; }
         .brain-admin-conversations__list { max-height: 330px; padding: 0 0 15px; border-right: 0; border-bottom: 1px solid #ecebe4; }
         .brain-admin-conversations__thread { max-height: 560px; padding: 18px 0 0; }
