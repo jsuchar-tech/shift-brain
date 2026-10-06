@@ -231,6 +231,7 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
   }
 
   const copy = { ...DEFAULT_SETTINGS, ...(settings || {}) }
+  const loginLogoWidth = Math.min(320, Math.max(40, Number.parseFloat(copy.login_logo_width) || 91))
 
   return (
     <div className="brain-login" style={{
@@ -241,7 +242,8 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
       '--muted': copy.color_muted,
       '--white': copy.color_white,
       '--line': copy.color_line,
-      '--danger': copy.color_danger
+      '--danger': copy.color_danger,
+      '--login-logo-width': `${loginLogoWidth}px`
     }}>
       <main className="brain-login__content">
         <img src={copy.brain_icon_url || DEFAULT_SETTINGS.brain_icon_url} alt="" className="brain-login__brain" />
@@ -354,10 +356,11 @@ function ClerkLogin({ settings, onForgotPassword, onCreateAccount }) {
           position: absolute;
           top: 123px;
           left: 50%;
-          width: 91px;
-          height: 81px;
+          width: min(var(--login-logo-width), calc(100% - 60px));
+          height: auto;
+          max-height: 118px;
           transform: translateX(-50%);
-          object-fit: cover;
+          object-fit: contain;
         }
 
         .brain-login h1 {

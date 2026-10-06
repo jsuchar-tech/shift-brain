@@ -7,6 +7,7 @@ const LEGACY_FIGMA_ASSET_PREFIX = 'https://www.figma.com/api/mcp/asset/'
 
 const DEFAULT_SETTINGS = {
   brain_icon_url: `${ASSET_BASE_URL}/brain-icon.png`,
+  login_logo_width: '91',
   plus_base_icon_url: `${ASSET_BASE_URL}/plus-base.svg`,
   plus_glyph_icon_url: `${ASSET_BASE_URL}/plus-glyph.svg`,
   send_base_icon_url: `${ASSET_BASE_URL}/send-base.svg`,
@@ -49,7 +50,8 @@ const DEFAULT_SETTINGS = {
 
 const URL_FIELDS = ['brain_icon_url', 'plus_base_icon_url', 'plus_glyph_icon_url', 'send_base_icon_url', 'send_glyph_icon_url', 'sidebar_open_icon_url', 'sidebar_close_icon_url', 'search_icon_url', 'upload_file_icon_url', 'send_message_icon_url']
 const COLOR_FIELDS = ['color_cream', 'color_ink', 'color_pink', 'color_purple', 'color_muted', 'color_yellow', 'color_white', 'color_line', 'color_soft_pink', 'color_success', 'color_danger']
-const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => !URL_FIELDS.includes(key) && !COLOR_FIELDS.includes(key))
+const SIZE_FIELDS = ['login_logo_width']
+const TEXT_FIELDS = Object.keys(DEFAULT_SETTINGS).filter(key => !URL_FIELDS.includes(key) && !COLOR_FIELDS.includes(key) && !SIZE_FIELDS.includes(key))
 
 function cleanSettings(input = {}) {
   const next = { ...DEFAULT_SETTINGS }
@@ -81,6 +83,11 @@ function cleanSettings(input = {}) {
 
   for (const key of COLOR_FIELDS) {
     if (!/^#[0-9a-f]{6}$/i.test(next[key])) next[key] = DEFAULT_SETTINGS[key]
+  }
+
+  for (const key of SIZE_FIELDS) {
+    const size = Number.parseFloat(next[key])
+    next[key] = String(Number.isFinite(size) ? Math.min(320, Math.max(40, size)) : DEFAULT_SETTINGS[key])
   }
 
   for (const key of TEXT_FIELDS) {

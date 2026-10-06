@@ -20,6 +20,7 @@ function clerkError(error, fallback) {
 }
 
 function AuthLayout({ title, subtitle, children, modifier = '', help = null, brainIcon, theme = {} }) {
+  const loginLogoWidth = Math.min(320, Math.max(40, Number.parseFloat(theme.login_logo_width) || 91))
   return (
     <div className={`brain-auth ${modifier}`} style={{
       '--cream': theme.color_cream || '#fdfbef',
@@ -27,7 +28,8 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
       '--pink': theme.color_pink || '#ff008f',
       '--purple': theme.color_purple || '#302798',
       '--muted': theme.color_muted || '#b7b7b7',
-      '--white': theme.color_white || '#ffffff'
+      '--white': theme.color_white || '#ffffff',
+      '--login-logo-width': `${loginLogoWidth}px`
     }}>
       <main className="brain-auth__content">
         <img className="brain-auth__brain" src={brainIcon || DEFAULT_SETTINGS.brain_icon_url} alt="" />
@@ -58,10 +60,11 @@ function AuthLayout({ title, subtitle, children, modifier = '', help = null, bra
           position: absolute;
           top: 123px;
           left: 50%;
-          width: 91px;
-          height: 81px;
+          width: min(var(--login-logo-width), calc(100% - 60px));
+          height: auto;
+          max-height: 118px;
           transform: translateX(-50%);
-          object-fit: cover;
+          object-fit: contain;
         }
 
         .brain-auth h1 {

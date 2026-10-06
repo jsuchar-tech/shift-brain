@@ -523,6 +523,7 @@ function SettingsTab({ getToken, settings, onSettingsChange }) {
 
     <section className="brain-admin-settings__card brain-admin-settings__card--wide">
       <h3>Login screen</h3>
+      <SettingsField label="Login logo width (px)" value={form.login_logo_width} onChange={v => update('login_logo_width', v)} type="number" help="Adjusts the login, signup and password-reset logo width. Values are limited to 40–320px." />
       <SettingsField label="Heading" value={form.login_heading} onChange={v => update('login_heading', v)} />
       <SettingsField label="Intro" value={form.login_intro} onChange={v => update('login_intro', v)} multiline />
       <SettingsField label="Emphasis" value={form.login_emphasis} onChange={v => update('login_emphasis', v)} />

@@ -4,6 +4,7 @@ const ASSET_BASE_URL = `${API_URL}/assets`
 
 export const DEFAULT_SETTINGS = {
   brain_icon_url: `${ASSET_BASE_URL}/brain-icon.png`,
+  login_logo_width: '91',
   plus_base_icon_url: `${ASSET_BASE_URL}/plus-base.svg`,
   plus_glyph_icon_url: `${ASSET_BASE_URL}/plus-glyph.svg`,
   send_base_icon_url: `${ASSET_BASE_URL}/send-base.svg`,
