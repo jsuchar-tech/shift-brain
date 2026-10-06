@@ -193,7 +193,7 @@ export default function AuthScreen() {
             position: 'absolute',
             left: '30px',
             top: '30px',
-            width: '48px',
+            width: 'auto',
             height: '39px',
             objectFit: 'cover'
           }}

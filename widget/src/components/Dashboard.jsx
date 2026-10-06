@@ -75,25 +75,69 @@ function TabButton({ label, active, onClick }) {
 function ParticipantsTab({ getToken }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [updatingId, setUpdatingId] = useState(null)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
 
-  async function loadUsers() {
-    setLoading(true)
-    return adminFetch('/admin/users', getToken)
-      .then(d => setUsers((d.users || []).sort((a, b) => Number(a.is_active) - Number(b.is_active))))
-      .catch(console.error)
-      .finally(() => setLoading(false))
+  async function loadUsers({ sync = false, silent = false } = {}) {
+    if (!silent) {
+      setError('')
+      if (sync) setRefreshing(true)
+      else setLoading(true)
+    }
+
+    try {
+      if (sync) {
+        try {
+          const syncResult = await adminFetch('/admin/users/sync', getToken, { method: 'POST' })
+          const result = syncResult.result || {}
+          const changed = (result.created || 0) + (result.updated || 0) + (result.linked || 0)
+          setNotice(changed
+            ? `Clerk sync complete: ${result.created || 0} new, ${result.linked || 0} linked, ${result.updated || 0} updated.`
+            : 'Clerk users are already up to date.')
+          if (result.failed) setNotice(current => `${current} ${result.failed} account${result.failed === 1 ? '' : 's'} could not be synchronized.`)
+        } catch (syncError) {
+          console.error(syncError)
+          setError(`${syncError.message || 'Unable to refresh Clerk signups.'} Stored participants are shown below.`)
+        }
+      }
+
+      const data = await adminFetch('/admin/users', getToken)
+      setUsers((data.users || []).sort((a, b) => Number(a.is_active) - Number(b.is_active)))
+    } catch (loadError) {
+      console.error(loadError)
+      setError(loadError.message || 'Unable to load participants.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }
 
   useEffect(() => {
-    loadUsers()
+    loadUsers({ sync: true })
+    const timer = window.setInterval(() => loadUsers({ silent: true }), 30000)
+    return () => window.clearInterval(timer)
   }, [getToken])
 
   async function toggleUser(id, is_active) {
-    await adminFetch(`/admin/users/${id}`, getToken, {
-      method: 'PATCH',
-      body: JSON.stringify({ is_active: !is_active })
-    })
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: !is_active } : u))
+    setUpdatingId(id)
+    setError('')
+    try {
+      const data = await adminFetch(`/admin/users/${id}`, getToken, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: !is_active })
+      })
+      setUsers(previous => previous.map(user => user.id === id
+        ? { ...user, ...(data.user || {}), is_active: !is_active }
+        : user))
+      setNotice(is_active ? 'Access revoked.' : 'Access granted. The participant can now open SHIFT Brain.')
+    } catch (updateError) {
+      console.error(updateError)
+      setError(updateError.message || 'Unable to update participant access.')
+    } finally {
+      setUpdatingId(null)
+    }
   }
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
@@ -108,11 +152,16 @@ function ParticipantsTab({ getToken }) {
           <h2>Participants <span>{users.length}</span></h2>
           <p className="brain-admin-toolbar__description">{pendingCount ? `${pendingCount} signup${pendingCount === 1 ? '' : 's'} waiting for approval` : 'No signups waiting for approval'}</p>
         </div>
-        <button type="button" className="brain-admin-button" onClick={loadUsers}>Refresh signups</button>
+        <button type="button" className="brain-admin-button" onClick={() => loadUsers({ sync: true })} disabled={refreshing}>
+          {refreshing ? 'Refreshing…' : 'Refresh signups'}
+        </button>
       </div>
 
-      <div className="brain-admin-table-wrap">
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+      {error && <p className="brain-admin-feedback is-error" role="alert">{error}</p>}
+      {notice && !error && <p className="brain-admin-feedback" aria-live="polite">{notice}</p>}
+
+      <div className="brain-admin-table-wrap brain-admin-users-table-wrap">
+        <table className="brain-admin-users-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
             {['Name', 'Email', 'Country', 'Year', 'Tokens today', 'Last active', 'Status', ''].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px', color: '#888', fontWeight: '500' }}>{h}</th>)}
           </tr></thead>
@@ -127,7 +176,15 @@ function ParticipantsTab({ getToken }) {
                 <td style={{ padding: '10px 8px', color: '#666' }}>{u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}</td>
                 <td style={{ padding: '10px 8px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '11px', background: u.is_active ? '#e6f4ea' : '#fff0f8', color: u.is_active ? '#2d7a3a' : '#ff008f' }}>{u.is_active ? 'Approved' : 'Pending approval'}</span></td>
                 <td style={{ padding: '10px 8px' }}>
-                  {u.role !== 'admin' && <button className={`brain-admin-button ${u.is_active ? '' : 'brain-admin-button--primary'}`} onClick={() => toggleUser(u.id, u.is_active)}>{u.is_active ? 'Revoke access' : 'Approve'}</button>}
+                  {u.role !== 'admin' && (
+                    <button
+                      className={`brain-admin-button ${u.is_active ? '' : 'brain-admin-button--primary'}`}
+                      onClick={() => toggleUser(u.id, u.is_active)}
+                      disabled={updatingId === u.id}
+                    >
+                      {updatingId === u.id ? 'Saving…' : u.is_active ? 'Revoke access' : 'Grant access'}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -664,7 +721,14 @@ export default function Dashboard({ onBack, settings, onSettingsChange }) {
 
       .brain-admin-notice { margin-bottom: 18px; padding: 13px 15px; border: 1px solid #ffc5e4; border-radius: 9px; background: #fff3fa; font-size: 12px; line-height: 19px; }
       .brain-admin-notice span { color: var(--pink); word-break: break-all; }
+      .brain-admin-feedback { margin: -10px 0 18px; padding: 10px 12px; border: 1px solid #cfe8d4; border-radius: 8px; background: #f2fbf4; color: var(--success); font-size: 12px; line-height: 18px; }
+      .brain-admin-feedback.is-error { border-color: #fed7d7; background: #fff5f5; color: var(--danger); }
       .brain-admin-table-wrap { overflow-x: auto; border: 1px solid #efeee7; border-radius: 10px; }
+      .brain-admin-users-table { min-width: 940px; }
+      .brain-admin-users-table th:last-child,
+      .brain-admin-users-table td:last-child { position: sticky; right: 0; z-index: 1; min-width: 132px; background: var(--cream); box-shadow: -12px 0 18px -18px rgba(11,11,45,.5); }
+      .brain-admin-users-table th:last-child { z-index: 2; background: #faf9f3; }
+      .brain-admin-users-table tbody tr:hover td:last-child { background: #fdfcf7; }
       .brain-dashboard table { width: 100%; border-collapse: collapse; }
       .brain-dashboard thead { background: #faf9f3; }
       .brain-dashboard th { color: #85858d !important; font-size: 10px !important; font-weight: 600 !important; letter-spacing: .05em; text-transform: uppercase; }

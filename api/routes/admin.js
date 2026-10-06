@@ -8,8 +8,176 @@ import { acquireGlobalGuard, releaseGuard } from '../middleware/rateLimit.js'
 import { spawn } from 'node:child_process'
 
 const router = Router()
+const CLERK_PAGE_SIZE = 100
+const MAX_CLERK_PAGES = 100
 
 router.use(requireAuth, requireAdmin)
+
+function clerkUserUpdates(clerkUser) {
+  const profile = clerkProfile(clerkUser)
+  const metadata = clerkUser?.publicMetadata || {}
+  const signupMetadata = clerkUser?.unsafeMetadata || {}
+  const clerkName = [clerkUser?.firstName, clerkUser?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim() || clerkUser?.username
+  const countryOffice = metadata.country_office || signupMetadata.country_office
+  const shifterYear = Number.parseInt(metadata.shifter_year ?? signupMetadata.shifter_year, 10)
+  const updates = {
+    work_email: profile.work_email
+  }
+
+  // Do not replace a curator-edited name with the generic profile fallback.
+  if (clerkName) updates.full_name = clerkName
+  if (countryOffice) updates.country_office = countryOffice
+  if (Number.isFinite(shifterYear) && shifterYear > 0) updates.shifter_year = shifterYear
+  if (profile.role) updates.role = profile.role
+  return updates
+}
+
+async function listAllClerkUsers() {
+  const users = []
+
+  for (let page = 0; page < MAX_CLERK_PAGES; page += 1) {
+    const offset = page * CLERK_PAGE_SIZE
+    const response = await clerkClient.users.getUserList({
+      limit: CLERK_PAGE_SIZE,
+      offset
+    })
+    const pageUsers = Array.isArray(response) ? response : (response?.data || [])
+    users.push(...pageUsers)
+
+    const totalCount = Number(response?.totalCount)
+    if (pageUsers.length < CLERK_PAGE_SIZE) break
+    if (Number.isFinite(totalCount) && users.length >= totalCount) break
+  }
+
+  return users
+}
+
+async function ensureTokenLimits(userId) {
+  const { error } = await supabase
+    .from('token_limits')
+    .upsert({
+      user_id: userId,
+      daily_limit: Number.parseInt(process.env.DAILY_TOKEN_LIMIT, 10) || 30000,
+      monthly_limit: Number.parseInt(process.env.MONTHLY_TOKEN_LIMIT, 10) || 500000
+    }, { onConflict: 'user_id', ignoreDuplicates: true })
+
+  if (error) throw error
+}
+
+async function syncUsersFromClerk() {
+  const { data: storedUsers, error: storedError } = await supabase
+    .from('users')
+    .select('*')
+
+  if (storedError) throw storedError
+
+  const localUsers = storedUsers || []
+  const usersByClerkId = new Map(localUsers
+    .filter(user => user.clerk_user_id)
+    .map(user => [user.clerk_user_id, user]))
+  const usersByEmail = new Map(localUsers
+    .filter(user => user.work_email)
+    .map(user => [String(user.work_email).toLowerCase(), user]))
+  const clerkUsers = await listAllClerkUsers()
+  const result = { created: 0, updated: 0, linked: 0, skipped: 0, failed: 0 }
+
+  for (const clerkUser of clerkUsers) {
+    try {
+      const verifiedEmail = verifiedPrimaryEmail(clerkUser)
+      if (!verifiedEmail) {
+        result.skipped += 1
+        continue
+      }
+
+      const profileUpdates = clerkUserUpdates(clerkUser)
+      const existingById = usersByClerkId.get(clerkUser.id)
+
+      if (existingById) {
+        const { data: updated, error: updateError } = await supabase
+          .from('users')
+          .update(profileUpdates)
+          .eq('id', existingById.id)
+          .select()
+          .single()
+        if (updateError) throw updateError
+
+        usersByClerkId.set(clerkUser.id, updated)
+        usersByEmail.set(verifiedEmail.toLowerCase(), updated)
+        result.updated += 1
+        continue
+      }
+
+      const emailKey = verifiedEmail.toLowerCase()
+      const existingByEmail = usersByEmail.get(emailKey)
+      if (existingByEmail) {
+        const { data: linked, error: linkError } = await supabase.rpc(
+          'link_verified_clerk_user',
+          {
+            p_clerk_user_id: clerkUser.id,
+            p_verified_email: verifiedEmail,
+            p_require_approval: true
+          }
+        )
+        if (linkError) throw linkError
+        if (!linked) {
+          result.skipped += 1
+          continue
+        }
+
+        const { data: updated, error: updateError } = await supabase
+          .from('users')
+          .update(profileUpdates)
+          .eq('id', linked.id)
+          .select()
+          .single()
+        if (updateError) throw updateError
+
+        usersByClerkId.set(clerkUser.id, updated)
+        usersByEmail.set(emailKey, updated)
+        await ensureTokenLimits(updated.id)
+        result.linked += 1
+        continue
+      }
+
+      const profile = clerkProfile(clerkUser)
+      const { data: created, error: createError } = await supabase
+        .from('users')
+        .insert({
+          clerk_user_id: clerkUser.id,
+          ...profile,
+          role: profile.role || 'participant',
+          is_active: false
+        })
+        .select()
+        .single()
+      if (createError) throw createError
+
+      usersByClerkId.set(clerkUser.id, created)
+      usersByEmail.set(emailKey, created)
+      await ensureTokenLimits(created.id)
+      result.created += 1
+    } catch (error) {
+      result.failed += 1
+      console.error(`Failed to synchronize Clerk user ${clerkUser.id}:`, error)
+    }
+  }
+
+  return result
+}
+
+// POST /admin/users/sync
+router.post('/users/sync', async (req, res) => {
+  try {
+    const result = await syncUsersFromClerk()
+    res.json({ message: 'Clerk users synchronized', result })
+  } catch (error) {
+    console.error('Admin Clerk sync error:', error)
+    res.status(502).json({ error: 'Failed to synchronize users from Clerk' })
+  }
+})
 
 // GET /admin/users
 router.get('/users', async (req, res) => {
@@ -21,71 +189,7 @@ router.get('/users', async (req, res) => {
 
     if (error) throw error
 
-    let users = storedUsers || []
-
-    // Import Clerk signups that were completed before the browser could call
-    // /auth/sync. Existing participant records remain static and are never
-    // overwritten from Clerk; this only discovers genuinely missing accounts.
-    try {
-      const clerkPage = await clerkClient.users.getUserList({ limit: 500 })
-      const knownClerkIds = new Set(users.map(user => user.clerk_user_id).filter(Boolean))
-      const knownEmails = new Map(users.map(user => [String(user.work_email || '').toLowerCase(), user]))
-
-      for (const clerkUser of clerkPage.data) {
-        if (knownClerkIds.has(clerkUser.id)) continue
-
-        const verifiedEmail = verifiedPrimaryEmail(clerkUser)
-        if (!verifiedEmail) {
-          console.warn(`Skipping Clerk user ${clerkUser.id}: no verified email address`)
-          continue
-        }
-
-        const profile = clerkProfile(clerkUser)
-        const emailKey = verifiedEmail.toLowerCase()
-        const emailMatch = emailKey ? knownEmails.get(emailKey) : null
-
-        if (emailMatch) {
-          const { data: linked, error: linkError } = await supabase.rpc(
-            'link_verified_clerk_user',
-            {
-              p_clerk_user_id: clerkUser.id,
-              p_verified_email: verifiedEmail,
-              p_require_approval: true
-            }
-          )
-          if (linkError) throw linkError
-          if (!linked) continue
-          users = users.map(user => user.id === linked.id ? linked : user)
-          knownClerkIds.add(clerkUser.id)
-          continue
-        }
-
-        const { data: created, error: createError } = await supabase
-          .from('users')
-          .insert({
-            clerk_user_id: clerkUser.id,
-            ...profile,
-            role: profile.role || 'participant',
-            is_active: false
-          })
-          .select()
-          .single()
-
-        if (createError) throw createError
-        users.push(created)
-        knownClerkIds.add(clerkUser.id)
-        if (emailKey) knownEmails.set(emailKey, created)
-
-        await supabase.from('token_limits').insert({
-          user_id: created.id,
-          daily_limit: Number.parseInt(process.env.DAILY_TOKEN_LIMIT, 10) || 30000,
-          monthly_limit: Number.parseInt(process.env.MONTHLY_TOKEN_LIMIT, 10) || 500000
-        })
-      }
-    } catch (clerkError) {
-      // Keep the dashboard available from local data during Clerk outages.
-      console.error('Failed to import pending Clerk signups:', clerkError)
-    }
+    const users = storedUsers || []
 
     const { data: usage } = await supabase
       .from('user_token_usage')
@@ -125,15 +229,32 @@ router.get('/users', async (req, res) => {
 // PATCH /admin/users/:id
 router.patch('/users/:id', async (req, res) => {
   try {
-    const { id } = req.params
+    const id = Number.parseInt(req.params.id, 10)
     const { is_active, role, daily_limit, monthly_limit } = req.body
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid user ID' })
+    }
+    if (is_active !== undefined && typeof is_active !== 'boolean') {
+      return res.status(400).json({ error: 'is_active must be a boolean' })
+    }
+    if (role !== undefined && !['admin', 'participant'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' })
+    }
 
     const updates = {}
     if (is_active !== undefined) updates.is_active = is_active
     if (role !== undefined) updates.role = role
 
+    let updatedUser = null
     if (Object.keys(updates).length > 0) {
-      await supabase.from('users').update(updates).eq('id', id)
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      updatedUser = data
     }
 
     if (daily_limit !== undefined || monthly_limit !== undefined) {
@@ -142,12 +263,23 @@ router.patch('/users/:id', async (req, res) => {
       if (monthly_limit !== undefined) limitUpdates.monthly_override = monthly_limit
       limitUpdates.updated_at = new Date().toISOString()
 
-      await supabase
+      const { error } = await supabase
         .from('token_limits')
-        .upsert({ user_id: parseInt(id), ...limitUpdates })
+        .upsert({ user_id: id, ...limitUpdates }, { onConflict: 'user_id' })
+      if (error) throw error
     }
 
-    res.json({ message: 'User updated' })
+    if (!updatedUser) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      updatedUser = data
+    }
+
+    res.json({ message: 'User updated', user: updatedUser })
   } catch (err) {
     console.error('Admin update user error:', err)
     res.status(500).json({ error: 'Failed to update user' })
