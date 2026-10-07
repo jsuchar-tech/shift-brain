@@ -173,7 +173,8 @@ def _page_record(
     page: dict,
     data_source_id: str | None = None,
     database_id: str | None = None,
-    database_title: str | None = None
+    database_title: str | None = None,
+    database_url: str | None = None
 ) -> dict:
     parent = page.get('parent', {})
     parent_type = parent.get('type')
@@ -193,6 +194,7 @@ def _page_record(
         'database_id': resolved_database_id,
         'data_source_id': resolved_data_source_id,
         'database_title': database_title,
+        'database_url': database_url,
         'properties': page.get('properties', {}) if is_database_entry else {}
     }
 
@@ -236,6 +238,7 @@ def list_all_pages() -> list[dict]:
         queried_data_source_ids.add(data_source_id)
 
         data_source_title = get_data_source_title(data_source)
+        data_source_url = data_source.get('public_url') or data_source.get('url')
         parent = data_source.get('parent', {})
         database_id = parent.get('database_id')
         print(f"Querying Notion data source: {data_source_title}")
@@ -253,7 +256,8 @@ def list_all_pages() -> list[dict]:
                         result,
                         data_source_id=data_source_id,
                         database_id=database_id,
-                        database_title=data_source_title
+                        database_title=data_source_title,
+                        database_url=data_source_url
                     )
                 elif object_type == 'data_source':
                     nested_id = result.get('id')

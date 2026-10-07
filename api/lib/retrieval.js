@@ -8,6 +8,7 @@ const TOP_K = 20
 const RERANK_POOL_K = 10
 const FINAL_TOP_K = 6
 const KEYWORD_K = 8
+const METADATA_K = 20
 const MIN_RERANK_SCORE = 0.3
 const MAX_PER_SOURCE = 4
 const MAX_CONTEXT_CHARS = 16_000
@@ -61,6 +62,7 @@ export async function retrieveRelevantChunks(queryText, { signal } = {}) {
 
 export async function retrieveChunks(queryEmbedding, queryText, { signal, skipRerank = false } = {}) {
   const keywords = extractKeywords(queryText)
+  const selectedFields = 'id, content, source_type, source_file_name, source_url, page_number, slide_number, section_header, last_ingested_at'
   const vectorRequest = queryEmbedding
     ? supabase.rpc('match_chunks', {
         query_embedding: queryEmbedding,
@@ -77,26 +79,52 @@ export async function retrieveChunks(queryEmbedding, queryText, { signal, skipRe
         ]).join(',')
         return supabase
           .from('document_chunks')
-          .select('id, content, source_type, source_file_name, source_url, page_number, slide_number, section_header')
+          .select(selectedFields)
           .or(keywordFilter)
           .limit(KEYWORD_K)
       })()
     : Promise.resolve({ data: [], error: null })
 
-  // These searches are independent. Running them together removes one full
-  // database round trip without adding any API calls.
-  const [vectorResponse, keywordResponse] = await Promise.all([vectorRequest, keywordRequest])
+  // A dedicated filename lookup prevents an exact knowledge-source title
+  // from being crowded out by common body-text matches in the small keyword
+  // pool. Multiple ilike filters are ANDed, so "colour" + "codes" selects
+  // SHIFT Brand Colour Codes and its consolidated database overview.
+  const metadataRequest = keywords.length > 0
+    ? (() => {
+        let request = supabase
+          .from('document_chunks')
+          .select(selectedFields)
 
-  if (vectorResponse.error && keywordResponse.error) {
+        for (const keyword of keywords) {
+          request = request.ilike('source_file_name', `%${keyword}%`)
+        }
+
+        return request
+          .order('last_ingested_at', { ascending: false })
+          .limit(METADATA_K)
+      })()
+    : Promise.resolve({ data: [], error: null })
+
+  // These searches are independent. Run them together so the exact-title
+  // lookup does not add a serial database round trip to response latency.
+  const [vectorResponse, keywordResponse, metadataResponse] = await Promise.all([
+    vectorRequest,
+    keywordRequest,
+    metadataRequest
+  ])
+
+  if (vectorResponse.error && keywordResponse.error && metadataResponse.error) {
     console.error('Retrieval error:', vectorResponse.error)
     throw vectorResponse.error
   }
   if (vectorResponse.error) console.error('Vector retrieval failed, using keyword results:', vectorResponse.error)
   if (keywordResponse.error) console.error('Keyword retrieval failed, using vector results:', keywordResponse.error)
+  if (metadataResponse.error) console.error('Filename retrieval failed, using other results:', metadataResponse.error)
 
   const merged = deduplicateChunks([
     ...(vectorResponse.data || []),
-    ...(keywordResponse.data || []).map(c => ({ ...c, similarity: 0.4 }))
+    ...(keywordResponse.data || []).map(c => ({ ...c, similarity: 0.4 })),
+    ...(metadataResponse.data || []).map(c => ({ ...c, similarity: 0.6 }))
   ])
 
   if (merged.length === 0) return []

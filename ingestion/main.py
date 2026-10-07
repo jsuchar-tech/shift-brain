@@ -12,11 +12,14 @@ from ingestion.extractors.gslides import extract_gslides
 from ingestion.extractors.pdf import extract_pdf
 from ingestion.extractors.docx import extract_docx
 from ingestion.extractors.pptx import extract_pptx
-from ingestion.extractors.notion import extract_notion_page
+from ingestion.extractors.notion import extract_database_entry, extract_notion_page
 
 load_dotenv()
 
-FOLDER_ID = os.environ['GOOGLE_DRIVE_FOLDER_ID']
+# Railway variables copied from files or multiline inputs can retain a final
+# newline. Drive treats that whitespace as part of the ID and responds with a
+# misleading 404, so normalize the value before it reaches the API query.
+FOLDER_ID = os.getenv('GOOGLE_DRIVE_FOLDER_ID', '').strip()
 
 MIME_TYPES = {
     'application/vnd.google-apps.document': 'gdoc',
@@ -243,6 +246,89 @@ def run_notion_ingestion(force: bool = False):
         processed += 1
         gc.collect()
 
+    # Store a consolidated representation of every Notion database as well as
+    # the individual entries above. Questions about a database as a whole
+    # (for example, "What are the SHIFT colour codes?") then retrieve one
+    # complete source instead of depending on a handful of separately ranked
+    # rows to cover the full answer.
+    database_groups = {}
+    for page in pages:
+        data_source_id = page.get('data_source_id')
+        database_title = page.get('database_title')
+        properties = page.get('properties') or {}
+        if not data_source_id or not database_title or not properties:
+            continue
+
+        group = database_groups.setdefault(data_source_id, {
+            'title': database_title,
+            'url': page.get('database_url') or page.get('public_url') or page.get('url', ''),
+            'entries': []
+        })
+        group['entries'].append(page)
+
+    for data_source_id, database in database_groups.items():
+        overview_id = f"notiondb{data_source_id.replace('-', '')}"
+        database_title = database['title']
+        entries = database['entries']
+        last_edited = max(
+            (entry.get('last_edited_time', '') for entry in entries),
+            default=''
+        )
+
+        if not force and overview_id in ingested:
+            ingested_time = ingested[overview_id]
+            if ingested_time and ingested_time >= last_edited:
+                print(f"  UNCHANGED — skipping database overview: {database_title}")
+                skipped += 1
+                continue
+
+        if overview_id in ingested:
+            delete_file_chunks(overview_id)
+
+        entry_texts = []
+        for entry in entries:
+            sections = extract_database_entry(
+                entry['id'].replace('-', ''),
+                entry.get('title') or 'Untitled',
+                entry.get('properties') or {},
+                database_title=database_title
+            )
+            entry_texts.extend(section['text'] for section in sections)
+
+        if not entry_texts:
+            print(f"  SKIP — no database properties extracted from: {database_title}")
+            skipped += 1
+            continue
+
+        overview_text = f"{database_title}\n\n" + '\n\n---\n\n'.join(entry_texts)
+        chunks = chunk_text(
+            text=overview_text,
+            source_type=NOTION_SOURCE_TYPE,
+            file_id=overview_id,
+            file_name=database_title,
+            source_url=database['url'],
+            section_header='Database overview'
+        )
+        chunks = [chunk for chunk in chunks if len(chunk.get('content', '')) >= 80]
+
+        if not chunks:
+            print(f"  SKIP — database overview produced 0 chunks: {database_title}")
+            skipped += 1
+            continue
+
+        try:
+            print(f"  OK — {len(chunks)} overview chunks from {database_title}")
+            print(f"  Embedding {len(chunks)} database overview chunks...")
+            chunks = embed_chunks(chunks)
+            upsert_chunks(chunks, last_edited)
+            processed += 1
+        except Exception as error:
+            print(f"  ERROR — database overview {database_title}: {type(error).__name__}: {error}")
+            errors += 1
+            error_pages.append(f"{database_title} (database overview)")
+        finally:
+            gc.collect()
+
     print(f"\n=== Notion ingestion complete ===")
     print(f"Processed:  {processed} pages")
     print(f"Skipped:    {skipped} pages")
@@ -265,6 +351,9 @@ def run_notion_ingestion(force: bool = False):
 
 def run_ingestion(force: bool = False, file_filter: str = None, type_filter: str = None):
     print("\n=== SHIFT Brain ingestion started ===\n")
+
+    if not FOLDER_ID:
+        raise RuntimeError('GOOGLE_DRIVE_FOLDER_ID is missing or empty')
 
     files = list_folder_files(FOLDER_ID)
     if not files:
@@ -364,10 +453,36 @@ if __name__ == '__main__':
     if type_filter:
         print(f"Type filter: only processing {type_filter} files")
 
+    failures = []
+
+    def run_source(label, callback):
+        try:
+            callback()
+        except Exception as error:
+            # In a combined run, one unavailable provider must not prevent the
+            # other knowledge source from updating. Keep a failing exit status
+            # so the scheduler still records the partial run accurately.
+            print(f"\nERROR — {label} ingestion failed: {type(error).__name__}: {error}")
+            import traceback
+            traceback.print_exc()
+            failures.append(label)
+
     if notion_only:
-        run_notion_ingestion(force=force)
+        run_source('Notion', lambda: run_notion_ingestion(force=force))
     elif drive_only:
-        run_ingestion(force=force, file_filter=file_filter, type_filter=type_filter)
+        run_source('Google Drive', lambda: run_ingestion(
+            force=force,
+            file_filter=file_filter,
+            type_filter=type_filter
+        ))
     else:
-        run_ingestion(force=force, file_filter=file_filter, type_filter=type_filter)
-        run_notion_ingestion(force=force)
+        run_source('Google Drive', lambda: run_ingestion(
+            force=force,
+            file_filter=file_filter,
+            type_filter=type_filter
+        ))
+        run_source('Notion', lambda: run_notion_ingestion(force=force))
+
+    if failures:
+        print(f"\nIngestion completed with failed sources: {', '.join(failures)}")
+        sys.exit(1)
