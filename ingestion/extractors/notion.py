@@ -64,7 +64,12 @@ PROPERTY_LABELS = {
 }
 
 
-def extract_database_entry(page_id: str, page_title: str, properties: dict) -> list[dict]:
+def extract_database_entry(
+    page_id: str,
+    page_title: str,
+    properties: dict,
+    database_title: str = None
+) -> list[dict]:
     """
     Extract a database entry as structured text.
     Skips properties by TYPE (metadata) first, then by a short
@@ -72,7 +77,13 @@ def extract_database_entry(page_id: str, page_title: str, properties: dict) -> l
     non-empty extracted value — regardless of which database it
     came from or what its properties are called.
     """
-    lines = [f"{page_title}"]
+    lines = []
+    if database_title:
+        lines.append(f"Knowledge base: {database_title}")
+        lines.append(f"Entry: {page_title}")
+    else:
+        lines.append(page_title)
+    identity_line_count = len(lines)
     relations_dropped = []
 
     for prop_name, prop_data in properties.items():
@@ -99,7 +110,7 @@ def extract_database_entry(page_id: str, page_title: str, properties: dict) -> l
         print(f"  NOTE — {page_title}: relation properties not extracted "
               f"(would need follow-up API calls to resolve): {', '.join(relations_dropped)}")
 
-    if len(lines) <= 1:
+    if len(lines) <= identity_line_count:
         print(f"  SKIP — no content extracted from: {page_title} "
               f"(had {len(properties)} properties, all metadata/empty/skipped)")
         return []
@@ -111,7 +122,12 @@ def extract_database_entry(page_id: str, page_title: str, properties: dict) -> l
     }]
 
 
-def extract_notion_page(page_id: str, page_title: str, properties: dict = None) -> list[dict]:
+def extract_notion_page(
+    page_id: str,
+    page_title: str,
+    properties: dict = None,
+    database_title: str = None
+) -> list[dict]:
     """
     Extract content from a Notion page.
 
@@ -127,7 +143,12 @@ def extract_notion_page(page_id: str, page_title: str, properties: dict = None) 
     sections = []
 
     if properties:
-        sections.extend(extract_database_entry(page_id, page_title, properties))
+        sections.extend(extract_database_entry(
+            page_id,
+            page_title,
+            properties,
+            database_title=database_title
+        ))
 
     body_sections = extract_page_blocks(page_id, page_title)
     sections.extend(body_sections)

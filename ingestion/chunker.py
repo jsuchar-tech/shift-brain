@@ -23,11 +23,18 @@ def chunk_text(
     if not text:
         return []
 
-    # Prepend section header to the text so it's always in context
-    if section_header:
-        prefixed_text = f"{section_header}\n\n{text}"
-    else:
-        prefixed_text = text
+    # Put source identity into the embedded text, not only into database
+    # metadata. This lets semantic and keyword retrieval connect a question
+    # phrased using a document/database title with the values inside it.
+    context_labels = []
+    for label in (file_name, section_header):
+        cleaned = str(label or '').strip()
+        existing_labels = {existing.casefold() for existing in context_labels}
+        if cleaned and cleaned.casefold() not in existing_labels:
+            context_labels.append(cleaned)
+
+    context_prefix = '\n'.join(context_labels)
+    prefixed_text = f"{context_prefix}\n\n{text}" if context_prefix else text
 
     chunks = []
     text_length = len(prefixed_text)

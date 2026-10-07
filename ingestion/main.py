@@ -146,7 +146,9 @@ def run_notion_ingestion(force: bool = False):
         print("No Notion pages found. Make sure pages are shared with the integration.")
         return
 
-    ingested = {} if force else get_ingested_files()
+    # Always load existing IDs so a forced rebuild replaces old chunks instead
+    # of inserting duplicates. `force` controls the unchanged-file skip only.
+    ingested = get_ingested_files()
 
     processed = 0
     skipped = 0
@@ -172,6 +174,13 @@ def run_notion_ingestion(force: bool = False):
         last_edited = page['last_edited_time']
         is_db_entry = page.get('is_database_entry', False)
         properties = page.get('properties', {})
+        database_title = page.get('database_title')
+
+        # A database row is a fragment of the parent knowledge source, not an
+        # unrelated file. Keeping the database title as its source name makes
+        # queries such as "SHIFT colour codes" retrieve the colour rows and
+        # cite the database users recognise instead of opaque row titles.
+        source_name = database_title or page_title
 
         if page_title == 'Untitled' and not is_db_entry:
             skipped += 1
@@ -193,7 +202,8 @@ def run_notion_ingestion(force: bool = False):
             sections = extract_notion_page(
                 page_id,
                 page_title,
-                properties=properties if is_db_entry else None
+                properties=properties if is_db_entry else None,
+                database_title=database_title
             )
         except Exception as e:
             print(f"  ERROR — {type(e).__name__}: {e}")
@@ -212,7 +222,7 @@ def run_notion_ingestion(force: bool = False):
                 text=section['text'],
                 source_type=NOTION_SOURCE_TYPE,
                 file_id=page_id,
-                file_name=page_title,
+                file_name=source_name,
                 source_url=page_url,
                 section_header=section.get('section_header')
             )
@@ -261,7 +271,9 @@ def run_ingestion(force: bool = False, file_filter: str = None, type_filter: str
         print("No files found in Drive folder. Exiting.")
         return
 
-    ingested = {} if force else get_ingested_files()
+    # Always load existing IDs so a forced rebuild replaces old chunks instead
+    # of inserting duplicates. `force` controls the unchanged-file skip only.
+    ingested = get_ingested_files()
     print(f"Already ingested: {len(ingested)} files\n")
 
     processed = 0

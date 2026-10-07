@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { supabase } from './supabase.js'
 import { acquireGlobalGuard, releaseGuard } from '../middleware/rateLimit.js'
+import { clearRetrievalCache } from './retrieval.js'
 
 const JOB_NAME = 'knowledge-ingestion'
 const WEEK_SECONDS = 7 * 24 * 60 * 60
@@ -91,6 +92,7 @@ async function checkWeeklyIngestion() {
 
     await finishScheduledRun(result.succeeded, result.error)
     if (result.succeeded) {
+      clearRetrievalCache()
       console.log('Scheduled weekly Drive and Notion ingestion completed')
     } else {
       console.error(`Scheduled weekly ingestion failed: ${result.error}`)

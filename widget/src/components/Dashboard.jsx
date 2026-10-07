@@ -26,7 +26,10 @@ async function adminFetch(path, getToken, options = {}) {
   }
 
   if (!res.ok) {
-    throw new Error(data?.error || `Request failed (${res.status})`)
+    const error = new Error(data?.error || `Request failed (${res.status})`)
+    error.status = res.status
+    error.data = data
+    throw error
   }
 
   if (!contentType.includes('application/json')) {
@@ -333,6 +336,8 @@ function KnowledgeTab({ getToken }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [ingesting, setIngesting] = useState(false)
+  const [ingestionNotice, setIngestionNotice] = useState('')
+  const [ingestionError, setIngestionError] = useState('')
 
   useEffect(() => {
     adminFetch('/admin/knowledge', getToken).then(setData).catch(console.error).finally(() => setLoading(false))
@@ -340,17 +345,30 @@ function KnowledgeTab({ getToken }) {
 
   async function triggerIngest() {
     setIngesting(true)
-    try { await adminFetch('/admin/ingest', getToken, { method: 'POST' }); alert('Ingestion started — check server logs for progress') }
-    catch { alert('Failed to trigger ingestion') }
-    finally { setIngesting(false) }
+    setIngestionNotice('')
+    setIngestionError('')
+    try {
+      const result = await adminFetch('/admin/ingest', getToken, {
+        method: 'POST',
+        body: JSON.stringify({ force: true })
+      })
+      setIngestionNotice(result?.message || 'Knowledge-base re-ingestion started.')
+    } catch (error) {
+      console.error('Unable to trigger knowledge ingestion:', error)
+      setIngestionError(error.message || 'Failed to trigger knowledge-base re-ingestion.')
+    } finally {
+      setIngesting(false)
+    }
   }
 
   if (loading) return <p style={{ padding: '20px', color: '#888' }}>Loading...</p>
   return <div className="brain-admin-tab">
     <div className="brain-admin-toolbar">
       <div><p className="brain-admin-eyebrow">Resources</p><h2>Knowledge base <span>{data?.files?.length || 0} files</span></h2></div>
-      <button className="brain-admin-button brain-admin-button--primary" onClick={triggerIngest} disabled={ingesting}>{ingesting ? 'Ingesting...' : 'Trigger re-ingestion'}</button>
+      <button type="button" className="brain-admin-button brain-admin-button--primary" onClick={triggerIngest} disabled={ingesting}>{ingesting ? 'Starting…' : 'Trigger re-ingestion'}</button>
     </div>
+    {ingestionError && <p className="brain-admin-feedback is-error" role="alert">{ingestionError}</p>}
+    {ingestionNotice && !ingestionError && <p className="brain-admin-feedback" aria-live="polite">{ingestionNotice}</p>}
     {data?.top_files?.length > 0 && <div style={{ marginBottom: '24px' }}><p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>Most retrieved (top 10)</p>{data.top_files.map((f, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f9f9f9', fontSize: '13px' }}><span style={{ color: '#333' }}>{f.name}</span><span style={{ color: '#ff008f', fontWeight: '500' }}>{f.retrieval_count} retrievals</span></div>)}</div>}
     {data?.never_retrieved?.length > 0 && <div style={{ marginBottom: '24px' }}><p style={{ fontSize: '12px', fontWeight: '600', color: '#e53e3e', marginBottom: '8px', textTransform: 'uppercase' }}>Never retrieved ({data.never_retrieved.length} files)</p>{data.never_retrieved.map((name, i) => <p key={i} style={{ fontSize: '13px', color: '#666', padding: '4px 0' }}>— {name}</p>)}</div>}
     <div><p style={{ fontSize: '12px', fontWeight: '600', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>All ingested files</p><div className="brain-admin-table-wrap"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}><thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>{['File', 'Type', 'Chunks', 'Last ingested'].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px', color: '#888', fontWeight: '500' }}>{h}</th>)}</tr></thead><tbody>{data?.files?.map((f, i) => <tr key={i} style={{ borderBottom: '1px solid #f9f9f9' }}><td style={{ padding: '8px' }}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: '#ff008f', textDecoration: 'none' }}>{f.name}</a></td><td style={{ padding: '8px', color: '#888' }}>{f.type}</td><td style={{ padding: '8px', color: '#888' }}>{f.chunk_count}</td><td style={{ padding: '8px', color: '#888' }}>{new Date(f.last_ingested).toLocaleDateString()}</td></tr>)}</tbody></table></div></div>

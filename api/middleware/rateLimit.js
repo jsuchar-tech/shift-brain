@@ -87,7 +87,10 @@ export async function acquireGlobalGuard(scope, lockSeconds) {
   return acquireGuard({
     scope,
     key: 'global',
-    limit: 1,
+    // Global background jobs need mutual exclusion, not a second cooldown after
+    // the worker has already released its lock. A limit of 1 made a completed
+    // ingestion block the admin button until the hour-long window expired.
+    limit: 2147483647,
     windowSeconds: lockSeconds,
     lockSeconds,
     exclusive: true

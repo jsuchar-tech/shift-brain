@@ -5,6 +5,7 @@ import { detectLanguage } from '../lib/detectLanguage.js'
 import { clerkClient } from '../lib/clerk.js'
 import { clerkProfile, verifiedPrimaryEmail } from '../lib/clerkProfile.js'
 import { acquireGlobalGuard, releaseGuard } from '../middleware/rateLimit.js'
+import { clearRetrievalCache } from '../lib/retrieval.js'
 import { spawn } from 'node:child_process'
 
 const router = Router()
@@ -640,23 +641,72 @@ router.get('/stats', async (req, res) => {
 // POST /admin/ingest
 router.post('/ingest', async (req, res) => {
   let guardAcquired = false
+  let guardReleased = false
+
+  const releaseIngestionGuard = async () => {
+    if (!guardAcquired || guardReleased) return
+    guardReleased = true
+    await releaseGuard('knowledge-ingestion', 'global')
+  }
+
   try {
     const guard = await acquireGlobalGuard('knowledge-ingestion', 60 * 60)
     if (!guard?.allowed) {
-      return res.status(409).json({
-        error: 'An ingestion job is already running',
+      if (guard?.reason === 'active') {
+        return res.status(202).json({
+          status: 'already_running',
+          message: 'A knowledge-base re-ingestion is already running.',
+          retry_after_seconds: guard?.retry_after_seconds || 60
+        })
+      }
+
+      const retrySeconds = guard?.retry_after_seconds || 60
+      const retryMinutes = Math.max(1, Math.ceil(retrySeconds / 60))
+      return res.status(429).json({
+        status: 'recently_requested',
+        error: `Re-ingestion was requested recently. Try again in about ${retryMinutes} minute${retryMinutes === 1 ? '' : 's'}.`,
         retry_after_seconds: guard?.retry_after_seconds || 60
       })
     }
     guardAcquired = true
 
-    const child = spawn(process.env.PYTHON_BIN || 'python3', ['-m', 'ingestion.main'], {
+    const workerArgs = ['-m', 'ingestion.main']
+    if (req.body?.force === true) workerArgs.push('--force')
+
+    const child = spawn(process.env.PYTHON_BIN || 'python3', workerArgs, {
       cwd: process.cwd(),
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe']
     })
 
-    const ingestionTimeout = setTimeout(() => {
+    let ingestionTimeout
+    let workerClosed = false
+
+    const workerStarted = new Promise((resolve, reject) => {
+      child.once('spawn', resolve)
+      child.once('error', reject)
+    })
+
+    child.stdout.on('data', chunk => console.log(`Ingestion: ${String(chunk).trimEnd()}`))
+    child.stderr.on('data', chunk => console.error(`Ingestion: ${String(chunk).trimEnd()}`))
+    child.once('error', async error => {
+      console.error('Ingestion process error:', error)
+      await releaseIngestionGuard()
+    })
+    child.once('close', async code => {
+      workerClosed = true
+      if (ingestionTimeout) clearTimeout(ingestionTimeout)
+      console.log(`Ingestion process exited with code ${code}`)
+      if (code === 0) clearRetrievalCache()
+      await releaseIngestionGuard()
+    })
+
+    // Do not tell the dashboard the job started until the operating system has
+    // actually launched the Python worker. A missing binary or invalid working
+    // directory now produces a real API error instead of a false success.
+    await workerStarted
+
+    ingestionTimeout = setTimeout(() => {
       console.error('Ingestion exceeded 55 minutes; terminating the worker')
       child.kill('SIGTERM')
       setTimeout(() => {
@@ -665,23 +715,22 @@ router.post('/ingest', async (req, res) => {
     }, 55 * 60 * 1000)
     ingestionTimeout.unref()
 
-    child.stdout.on('data', chunk => console.log(`Ingestion: ${String(chunk).trimEnd()}`))
-    child.stderr.on('data', chunk => console.error(`Ingestion: ${String(chunk).trimEnd()}`))
-    child.once('error', async error => {
-      console.error('Ingestion process error:', error)
-      await releaseGuard('knowledge-ingestion', 'global')
-    })
-    child.once('close', async code => {
-      clearTimeout(ingestionTimeout)
-      console.log(`Ingestion process exited with code ${code}`)
-      await releaseGuard('knowledge-ingestion', 'global')
-    })
+    // An extremely short-lived worker may close between the spawn event and
+    // timeout creation. Avoid leaving a live timer behind in that case.
+    if (workerClosed) clearTimeout(ingestionTimeout)
 
-    res.status(202).json({ message: 'Ingestion started — check server logs for progress' })
+    res.status(202).json({
+      status: 'started',
+      message: req.body?.force === true
+        ? 'Full knowledge-base rebuild started. Check Railway logs for progress.'
+        : 'Knowledge-base ingestion started. Check Railway logs for progress.'
+    })
   } catch (err) {
-    if (guardAcquired) await releaseGuard('knowledge-ingestion', 'global')
+    await releaseIngestionGuard()
     console.error('Ingest trigger error:', err)
-    res.status(500).json({ error: 'Failed to trigger ingestion' })
+    res.status(500).json({
+      error: 'The ingestion worker could not be started. Check the Railway logs for the underlying process error.'
+    })
   }
 })
 

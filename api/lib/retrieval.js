@@ -16,6 +16,10 @@ const RETRIEVAL_CACHE_TTL_MS = 5 * 60 * 1000
 const RETRIEVAL_CACHE_MAX = 100
 const retrievalCache = new Map()
 
+export function clearRetrievalCache() {
+  retrievalCache.clear()
+}
+
 export async function retrieveRelevantChunks(queryText, { signal } = {}) {
   const cacheKey = String(queryText || '').toLowerCase().replace(/\s+/g, ' ').trim()
   const cached = retrievalCache.get(cacheKey)
@@ -66,7 +70,11 @@ export async function retrieveChunks(queryEmbedding, queryText, { signal, skipRe
 
   const keywordRequest = keywords.length > 0
     ? (() => {
-        const keywordFilter = keywords.map(k => `content.ilike.%${k}%`).join(',')
+        const keywordFilter = keywords.flatMap(keyword => [
+          `content.ilike.%${keyword}%`,
+          `source_file_name.ilike.%${keyword}%`,
+          `section_header.ilike.%${keyword}%`
+        ]).join(',')
         return supabase
           .from('document_chunks')
           .select('id, content, source_type, source_file_name, source_url, page_number, slide_number, section_header')
@@ -94,18 +102,51 @@ export async function retrieveChunks(queryEmbedding, queryText, { signal, skipRe
   if (merged.length === 0) return []
   if (skipRerank) return selectDiverseChunks(rankByKeywordOverlap(queryText, merged))
   const ranked = await rerankChunks(queryText, merged, signal)
-  return selectDiverseChunks(ranked)
+  return selectDiverseChunks(promoteMetadataMatches(queryText, ranked, merged))
 }
 
 function rankByKeywordOverlap(queryText, chunks) {
   const keywords = extractKeywords(queryText)
   return [...chunks].sort((a, b) => {
-    const aText = String(a.content || '').toLowerCase()
-    const bText = String(b.content || '').toLowerCase()
+    const aText = chunkSearchText(a)
+    const bText = chunkSearchText(b)
     const aScore = keywords.reduce((score, keyword) => score + (aText.includes(keyword) ? 1 : 0), 0)
     const bScore = keywords.reduce((score, keyword) => score + (bText.includes(keyword) ? 1 : 0), 0)
     return bScore - aScore
   })
+}
+
+function chunkSearchText(chunk) {
+  return [chunk.source_file_name, chunk.section_header, chunk.content]
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase()
+}
+
+function promoteMetadataMatches(queryText, ranked, candidates) {
+  const keywords = extractKeywords(queryText)
+  if (keywords.length === 0) return ranked
+
+  const minimumMatches = Math.min(2, keywords.length)
+  const metadataMatches = candidates
+    .map(chunk => {
+      const metadata = [chunk.source_file_name, chunk.section_header]
+        .filter(Boolean)
+        .join('\n')
+        .toLowerCase()
+      const metadataScore = keywords.reduce(
+        (score, keyword) => score + (metadata.includes(keyword) ? 1 : 0),
+        0
+      )
+      return { chunk, metadataScore }
+    })
+    .filter(match => match.metadataScore >= minimumMatches)
+    .sort((a, b) => b.metadataScore - a.metadataScore)
+    .map(match => match.chunk)
+
+  // The reranker sees chunk body text. Preserve its order while ensuring an
+  // exact document/database-title match is not discarded by the score floor.
+  return deduplicateChunks([...metadataMatches, ...ranked])
 }
 
 async function rerankChunks(query, chunks, signal) {
@@ -188,7 +229,10 @@ export function extractKeywords(text) {
     'to', 'and', 'or', 'for', 'with', 'on', 'at', 'this', 'that',
     'can', 'does', 'do', 'tell', 'me', 'about', 'where', 'when',
     'who', 'which', 'there', 'their', 'they', 'have', 'has', 'been',
-    'from', 'into', 'than', 'more', 'some', 'any', 'all', 'but', 'not'
+    'from', 'into', 'than', 'more', 'some', 'any', 'all', 'but', 'not',
+    // The brand name occurs throughout the corpus and crowds more specific
+    // lexical matches out of the small keyword candidate pool.
+    'shift'
   ])
 
   return [...new Set(
@@ -241,7 +285,15 @@ export function formatChunksForPrompt(chunks) {
 export function formatChunksForCitation(chunks) {
   const seen = new Set()
   return chunks.filter(chunk => {
-    const key = chunk.id ?? `${chunk.source_file_name}:${chunk.page_number}:${chunk.slide_number}:${chunk.section_header}`
+    // One source entry may span several overlapping chunks. Cite the logical
+    // location once instead of showing duplicate source rows for every chunk.
+    const key = [
+      chunk.source_file_name,
+      chunk.source_url,
+      chunk.page_number,
+      chunk.slide_number,
+      chunk.section_header
+    ].join(':')
     if (seen.has(key)) return false
     seen.add(key)
     return true

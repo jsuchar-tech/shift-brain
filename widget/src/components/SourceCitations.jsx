@@ -6,6 +6,7 @@ const SOURCE_ARROW_URL = `${API_URL}/assets/source-arrow.svg`
 function citationLabel(citation) {
   if (citation.page_number) return `Page ${citation.page_number}`
   if (citation.slide_number) return `Slide ${citation.slide_number}`
+  if (citation.section_header) return citation.section_header
   return 'Open source'
 }
 
