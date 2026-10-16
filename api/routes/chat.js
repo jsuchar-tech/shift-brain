@@ -3,13 +3,18 @@ import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 import { requireAuth } from '../middleware/auth.js'
 import { rateLimitPerUser, rateLimitUploads } from '../middleware/rateLimit.js'
-import { retrieveRelevantChunks, packChunksForPrompt, formatChunksForCitation } from '../lib/retrieval.js'
+import {
+  citedChunksFromMessage,
+  retrieveRelevantChunks,
+  packChunksForPrompt,
+  formatChunksForCitation
+} from '../lib/retrieval.js'
 import { checkTokenLimits } from '../lib/tokenCheck.js'
 import { checkSafetyTriggers } from '../lib/safety.js'
 import { buildSystemPrompt } from '../lib/systemPrompt.js'
 import { detectLanguage } from '../lib/detectLanguage.js'
 import { selectMessageReaction } from '../lib/messageReaction.js'
-import { buildRetrievalQuery, conversationBelongsToUser, getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
+import { buildRetrievalQueries, conversationBelongsToUser, getConversationHistory, createConversation, saveMessage } from '../lib/conversationHistory.js'
 import { supabase } from '../lib/supabase.js'
 import {
   cleanupExpiredUploads,
@@ -29,6 +34,10 @@ const router = Router()
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const MAX_MESSAGE_LENGTH = 6000
+const CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || 'claude-opus-5-5'
+const MAX_OUTPUT_TOKENS = Math.min(8192, Math.max(2048,
+  Number.parseInt(process.env.ANTHROPIC_MAX_OUTPUT_TOKENS || '4096', 10) || 4096
+))
 
 // NOTE: legacy .doc (application/msword) removed — that binary format
 // can't be reliably parsed and was previously forwarded to Claude
@@ -140,10 +149,13 @@ async function extractDocxText(buffer) {
 }
 
 // Helper — build Claude message content with optional attachment
-async function buildUserMessageContent(message, attachment) {
-  if (!attachment) {
-    return message
+async function buildUserMessageContent(message, attachment, knowledgeDocuments = []) {
+  const content = [...knowledgeDocuments]
+  const questionBlock = {
+    type: 'text',
+    text: `<question>${message}</question>\n\nAnswer using the relevant evidence in the supplied documents.`
   }
+  if (!attachment) return content.length > 0 ? [...content, questionBlock] : message
 
   const { storage_path, file_type, file_name } = attachment
   const isImage = file_type.startsWith('image/')
@@ -151,20 +163,23 @@ async function buildUserMessageContent(message, attachment) {
   if (isImage) {
     const base64 = await getFileAsBase64(storage_path)
     return [
+      ...content,
       { type: 'image', source: { type: 'base64', media_type: file_type, data: base64 } },
-      { type: 'text', text: message }
+      questionBlock
     ]
   }
 
   if (file_type === 'application/pdf') {
     const base64 = await getFileAsBase64(storage_path)
     return [
+      ...content,
       {
         type: 'document',
         source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-        title: file_name
+        title: file_name,
+        citations: { enabled: true }
       },
-      { type: 'text', text: message }
+      questionBlock
     ]
   }
 
@@ -172,11 +187,20 @@ async function buildUserMessageContent(message, attachment) {
     const buffer = await getFileBuffer(storage_path)
     const text = await extractDocxText(buffer)
     if (!text.trim()) {
-      return `[Note: the attached Word document "${file_name}" could not be read]\n\n${message}`
+      return [...content, {
+        type: 'text',
+        text: `[The attached Word document "${file_name}" could not be read.]\n\n${questionBlock.text}`
+      }]
     }
     return [
-      { type: 'document', source: { type: 'text', media_type: 'text/plain', data: text }, title: file_name },
-      { type: 'text', text: message }
+      ...content,
+      {
+        type: 'document',
+        source: { type: 'text', media_type: 'text/plain', data: text },
+        title: file_name,
+        citations: { enabled: true }
+      },
+      questionBlock
     ]
   }
 
@@ -184,8 +208,14 @@ async function buildUserMessageContent(message, attachment) {
   const buffer = await getFileBuffer(storage_path)
   const text = buffer.toString('utf-8')
   return [
-    { type: 'document', source: { type: 'text', media_type: 'text/plain', data: text }, title: file_name },
-    { type: 'text', text: message }
+    ...content,
+    {
+      type: 'document',
+      source: { type: 'text', media_type: 'text/plain', data: text },
+      title: file_name,
+      citations: { enabled: true }
+    },
+    questionBlock
   ]
 }
 
@@ -380,8 +410,8 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       return reactionEmoji
     })
 
-    const retrievalQuery = buildRetrievalQuery(history, message)
-    const chunks = await retrieveRelevantChunks(retrievalQuery, { signal: requestController.signal })
+    const retrievalQueries = buildRetrievalQueries(history, message)
+    const chunks = await retrieveRelevantChunks(retrievalQueries, { signal: requestController.signal })
 
     if (process.env.DEBUG_RETRIEVAL === 'true') {
       console.log('Retrieved chunks (after reranking):')
@@ -394,13 +424,10 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     }
 
     const packedContext = packChunksForPrompt(chunks)
-    const contextText = packedContext.text
-    const citationData = formatChunksForCitation(packedContext.chunks)
-
-    const retrievedContext = contextText || '[No relevant knowledge-base excerpts were retrieved.]'
     const userContent = await buildUserMessageContent(
-      `Here are relevant excerpts from SHIFT's documents:\n\n${retrievedContext}\n\n---\n\nBased on the above documents, please answer this question:\n\n${message}`,
-      attachment
+      message,
+      attachment,
+      packedContext.documents
     )
 
     const messages = [...history, { role: 'user', content: userContent }]
@@ -410,9 +437,13 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
     let outputTokens = 0
 
     const stream = anthropic.messages.stream({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      system: buildSystemPrompt(),
+      model: CHAT_MODEL,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      system: [{
+        type: 'text',
+        text: buildSystemPrompt(),
+        cache_control: { type: 'ephemeral' }
+      }],
       messages
     }, { signal: requestController.signal })
 
@@ -426,8 +457,11 @@ router.post('/', requireAuth, rateLimitPerUser, async (req, res) => {
       outputTokens = msg.usage.output_tokens
     })
 
-    await stream.finalMessage()
+    const finalMessage = await stream.finalMessage()
     await reactionDelivery
+
+    const citedChunks = citedChunksFromMessage(finalMessage, packedContext.chunks)
+    const citationData = formatChunksForCitation(citedChunks)
 
     const latencyMs = Date.now() - startTime
 

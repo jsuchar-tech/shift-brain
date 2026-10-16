@@ -1,53 +1,63 @@
 import { supabase } from './supabase.js'
 import { fetchWithTimeout } from './http.js'
-import { embedQuery } from './voyage.js'
+import { embedQueries } from './voyage.js'
 import dotenv from 'dotenv'
+
 dotenv.config()
 
-const TOP_K = 20
-const RERANK_POOL_K = 10
-const FINAL_TOP_K = 6
-const KEYWORD_K = 8
-const METADATA_K = 20
-const MIN_RERANK_SCORE = 0.3
-const MAX_PER_SOURCE = 4
-const MAX_CONTEXT_CHARS = 16_000
-const MAX_CHUNK_CHARS = 4_000
+const VECTOR_K = 30
+const KEYWORD_K = 30
+const METADATA_K = 24
+const ANCHOR_K = 24
+const RERANK_INPUT_K = 40
+const RERANK_OUTPUT_K = 20
+const FINAL_TOP_K = 10
+const MAX_PER_SOURCE = 6
+const MAX_CONTEXT_CHARS = 30_000
+const MAX_CHUNK_CHARS = 5_000
+const NEIGHBOR_PARENT_K = 5
 const RETRIEVAL_CACHE_TTL_MS = 5 * 60 * 1000
 const RETRIEVAL_CACHE_MAX = 100
+const RRF_K = 60
+const SELECTED_FIELDS = [
+  'id', 'content', 'source_type', 'source_file_id', 'source_file_name',
+  'source_url', 'page_number', 'slide_number', 'section_header',
+  'last_ingested_at'
+].join(', ')
+
 const retrievalCache = new Map()
 
 export function clearRetrievalCache() {
   retrievalCache.clear()
 }
 
-export async function retrieveRelevantChunks(queryText, { signal } = {}) {
-  const cacheKey = String(queryText || '').toLowerCase().replace(/\s+/g, ' ').trim()
+export async function retrieveRelevantChunks(queryInput, { signal } = {}) {
+  const queries = normalizeQueries(queryInput)
+  if (queries.length === 0) return []
+
+  const cacheKey = queries.map(normalizeText).join('\n---\n')
   const cached = retrievalCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) {
-    // Refresh LRU order.
     retrievalCache.delete(cacheKey)
     retrievalCache.set(cacheKey, cached)
     return cached.chunks
   }
   if (cached) retrievalCache.delete(cacheKey)
 
-  let queryEmbedding = null
+  let embeddings = []
   try {
-    queryEmbedding = await embedQuery(queryText, { signal })
+    embeddings = await embedQueries(queries, { signal })
   } catch (error) {
     if (signal?.aborted) throw error
-    console.error('Embedding failed, using keyword-only retrieval:', error)
+    console.error('Embedding failed, using lexical retrieval:', error)
   }
 
-  const chunks = await retrieveChunks(queryEmbedding, queryText, {
+  const chunks = await retrieveChunks(embeddings, queries, {
     signal,
-    skipRerank: !queryEmbedding
+    skipRerank: embeddings.length === 0
   })
 
-  // Only cache fully ranked results. A temporary embedding outage should
-  // recover immediately rather than pinning degraded results for five minutes.
-  if (queryEmbedding && cacheKey) {
+  if (embeddings.length > 0 && cacheKey) {
     retrievalCache.set(cacheKey, {
       chunks,
       expiresAt: Date.now() + RETRIEVAL_CACHE_TTL_MS
@@ -60,126 +70,211 @@ export async function retrieveRelevantChunks(queryText, { signal } = {}) {
   return chunks
 }
 
-export async function retrieveChunks(queryEmbedding, queryText, { signal, skipRerank = false } = {}) {
-  const keywords = extractKeywords(queryText)
-  const selectedFields = 'id, content, source_type, source_file_name, source_url, page_number, slide_number, section_header, last_ingested_at'
-  const vectorRequest = queryEmbedding
-    ? supabase.rpc('match_chunks', {
-        query_embedding: queryEmbedding,
-        match_count: TOP_K
-      })
-    : Promise.resolve({ data: [], error: null })
+export async function retrieveChunks(queryEmbeddings, queryInput, { signal, skipRerank = false } = {}) {
+  const queries = normalizeQueries(queryInput)
+  const primaryQuery = queries[0] || ''
+  const searchText = queries.join(' ')
+  const keywords = extractKeywords(searchText)
+  const anchors = selectAnchorKeywords(keywords)
+
+  const vectorRequests = (queryEmbeddings || []).map(queryEmbedding =>
+    supabase.rpc('match_chunks', {
+      query_embedding: queryEmbedding,
+      match_count: VECTOR_K
+    })
+  )
 
   const keywordRequest = keywords.length > 0
-    ? (() => {
-        const keywordFilter = keywords.flatMap(keyword => [
-          `content.ilike.%${keyword}%`,
+    ? supabase.from('document_chunks').select(SELECTED_FIELDS)
+        .or(buildSearchFilter(keywords.slice(0, 8))).limit(KEYWORD_K)
+    : Promise.resolve({ data: [], error: null })
+
+  const metadataRequest = keywords.length > 0
+    ? supabase.from('document_chunks').select(SELECTED_FIELDS)
+        .or(keywords.slice(0, 8).flatMap(keyword => [
           `source_file_name.ilike.%${keyword}%`,
           `section_header.ilike.%${keyword}%`
-        ]).join(',')
-        return supabase
-          .from('document_chunks')
-          .select(selectedFields)
-          .or(keywordFilter)
-          .limit(KEYWORD_K)
-      })()
+        ]).join(','))
+        .order('last_ingested_at', { ascending: false }).limit(METADATA_K)
     : Promise.resolve({ data: [], error: null })
 
-  // A dedicated filename lookup prevents an exact knowledge-source title
-  // from being crowded out by common body-text matches in the small keyword
-  // pool. Multiple ilike filters are ANDed, so "colour" + "codes" selects
-  // SHIFT Brand Colour Codes and its consolidated database overview.
-  const metadataRequest = keywords.length > 0
+  const exactMetadataRequest = keywords.length > 0
     ? (() => {
-        let request = supabase
-          .from('document_chunks')
-          .select(selectedFields)
-
-        for (const keyword of keywords) {
+        let request = supabase.from('document_chunks').select(SELECTED_FIELDS)
+        for (const keyword of keywords.slice(0, 5)) {
           request = request.ilike('source_file_name', `%${keyword}%`)
         }
-
-        return request
-          .order('last_ingested_at', { ascending: false })
-          .limit(METADATA_K)
+        return request.order('last_ingested_at', { ascending: false }).limit(METADATA_K)
       })()
     : Promise.resolve({ data: [], error: null })
 
-  // These searches are independent. Run them together so the exact-title
-  // lookup does not add a serial database round trip to response latency.
-  const [vectorResponse, keywordResponse, metadataResponse] = await Promise.all([
-    vectorRequest,
+  const anchorRequest = anchors.length > 0
+    ? supabase.from('document_chunks').select(SELECTED_FIELDS)
+        .or(buildSearchFilter(anchors))
+        .order('last_ingested_at', { ascending: false }).limit(ANCHOR_K)
+    : Promise.resolve({ data: [], error: null })
+
+  const responses = await Promise.all([
+    ...vectorRequests,
     keywordRequest,
-    metadataRequest
+    metadataRequest,
+    exactMetadataRequest,
+    anchorRequest
   ])
+  const vectorResponses = responses.slice(0, vectorRequests.length)
+  const [keywordResponse, metadataResponse, exactMetadataResponse, anchorResponse] = responses.slice(vectorRequests.length)
+  const allResponses = [
+    ...vectorResponses, keywordResponse, metadataResponse, exactMetadataResponse, anchorResponse
+  ]
 
-  if (vectorResponse.error && keywordResponse.error && metadataResponse.error) {
-    console.error('Retrieval error:', vectorResponse.error)
-    throw vectorResponse.error
+  if (allResponses.every(response => response.error)) {
+    console.error('Retrieval error:', allResponses[0]?.error)
+    throw allResponses[0]?.error
   }
-  if (vectorResponse.error) console.error('Vector retrieval failed, using keyword results:', vectorResponse.error)
-  if (keywordResponse.error) console.error('Keyword retrieval failed, using vector results:', keywordResponse.error)
-  if (metadataResponse.error) console.error('Filename retrieval failed, using other results:', metadataResponse.error)
+  for (const response of allResponses) {
+    if (response.error) console.error('A retrieval channel failed:', response.error)
+  }
 
-  const merged = deduplicateChunks([
-    ...(vectorResponse.data || []),
-    ...(keywordResponse.data || []).map(c => ({ ...c, similarity: 0.4 })),
-    ...(metadataResponse.data || []).map(c => ({ ...c, similarity: 0.6 }))
-  ])
+  const rankedLists = [
+    ...vectorResponses.map((response, index) => ({
+      channel: `vector_${index}`,
+      weight: index === 0 ? 1.25 : 1,
+      chunks: response.data || []
+    })),
+    { channel: 'keyword', weight: 1.1, chunks: rankByLocalScore(primaryQuery, keywordResponse.data || []) },
+    { channel: 'metadata', weight: 1.35, chunks: rankByLocalScore(primaryQuery, metadataResponse.data || []) },
+    { channel: 'exact_metadata', weight: 1.8, chunks: rankByLocalScore(primaryQuery, exactMetadataResponse.data || []) },
+    { channel: 'entity', weight: 1.5, chunks: rankByLocalScore(primaryQuery, anchorResponse.data || []) }
+  ]
+  const merged = fuseRankedLists(rankedLists)
+
+  if (process.env.DEBUG_RETRIEVAL === 'true') {
+    console.log('Retrieval candidate counts:', {
+      queries, keywords, anchors,
+      vectors: vectorResponses.map(response => response.data?.length || 0),
+      keyword: keywordResponse.data?.length || 0,
+      metadata: metadataResponse.data?.length || 0,
+      exactMetadata: exactMetadataResponse.data?.length || 0,
+      entity: anchorResponse.data?.length || 0,
+      fused: merged.length
+    })
+  }
 
   if (merged.length === 0) return []
-  if (skipRerank) return selectDiverseChunks(rankByKeywordOverlap(queryText, merged))
-  const ranked = await rerankChunks(queryText, merged, signal)
-  return selectDiverseChunks(promoteMetadataMatches(queryText, ranked, merged))
+  const pool = buildRerankCandidatePool(searchText, merged)
+  const ranked = skipRerank
+    ? rankByLocalScore(searchText, pool)
+    : await rerankChunks(searchText, pool, signal)
+  const selected = selectDiverseChunks(rankFinalCandidates(searchText, ranked))
+  return expandWithNeighbors(selected)
 }
 
-function rankByKeywordOverlap(queryText, chunks) {
-  const keywords = extractKeywords(queryText)
-  return [...chunks].sort((a, b) => {
-    const aText = chunkSearchText(a)
-    const bText = chunkSearchText(b)
-    const aScore = keywords.reduce((score, keyword) => score + (aText.includes(keyword) ? 1 : 0), 0)
-    const bScore = keywords.reduce((score, keyword) => score + (bText.includes(keyword) ? 1 : 0), 0)
-    return bScore - aScore
-  })
+function normalizeQueries(queryInput) {
+  const values = Array.isArray(queryInput) ? queryInput : [queryInput]
+  return [...new Set(values
+    .map(value => String(value || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean))].slice(0, 3)
 }
 
-function chunkSearchText(chunk) {
-  return [chunk.source_file_name, chunk.section_header, chunk.content]
-    .filter(Boolean)
-    .join('\n')
-    .toLowerCase()
+function normalizeText(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-function promoteMetadataMatches(queryText, ranked, candidates) {
-  const keywords = extractKeywords(queryText)
-  if (keywords.length === 0) return ranked
+function buildSearchFilter(keywords) {
+  return keywords.flatMap(keyword => [
+    `content.ilike.%${keyword}%`,
+    `source_file_name.ilike.%${keyword}%`,
+    `section_header.ilike.%${keyword}%`
+  ]).join(',')
+}
 
-  const minimumMatches = Math.min(2, keywords.length)
-  const metadataMatches = candidates
-    .map(chunk => {
-      const metadata = [chunk.source_file_name, chunk.section_header]
-        .filter(Boolean)
-        .join('\n')
-        .toLowerCase()
-      const metadataScore = keywords.reduce(
-        (score, keyword) => score + (metadata.includes(keyword) ? 1 : 0),
-        0
-      )
-      return { chunk, metadataScore }
+function chunkKey(chunk) {
+  if (chunk?.id !== undefined && chunk?.id !== null) return `id:${chunk.id}`
+  return `content:${normalizeText(chunk?.content)}`
+}
+
+export function fuseRankedLists(lists) {
+  const candidates = new Map()
+  for (const { channel, weight = 1, chunks = [] } of lists) {
+    chunks.forEach((chunk, index) => {
+      if (!chunk?.content) return
+      const key = chunkKey(chunk)
+      const existing = candidates.get(key) || {
+        ...chunk,
+        similarity: Number(chunk.similarity || 0),
+        retrieval_score: 0,
+        retrieval_channels: []
+      }
+      existing.retrieval_score += weight / (RRF_K + index + 1)
+      existing.similarity = Math.max(existing.similarity, Number(chunk.similarity || 0))
+      if (!existing.retrieval_channels.includes(channel)) existing.retrieval_channels.push(channel)
+      candidates.set(key, existing)
     })
-    .filter(match => match.metadataScore >= minimumMatches)
-    .sort((a, b) => b.metadataScore - a.metadataScore)
-    .map(match => match.chunk)
+  }
+  return [...candidates.values()]
+    .sort((a, b) => b.retrieval_score - a.retrieval_score)
+}
 
-  // The reranker sees chunk body text. Preserve its order while ensuring an
-  // exact document/database-title match is not discarded by the score floor.
-  return deduplicateChunks([...metadataMatches, ...ranked])
+function buildRerankCandidatePool(queryText, chunks) {
+  const lexical = rankByLocalScore(queryText, chunks).slice(0, 28)
+  const fused = [...chunks]
+    .sort((a, b) => Number(b.retrieval_score || 0) - Number(a.retrieval_score || 0))
+    .slice(0, 28)
+  const semantic = [...chunks]
+    .sort((a, b) => Number(b.similarity || 0) - Number(a.similarity || 0))
+    .slice(0, 20)
+  return deduplicateChunks([...lexical, ...fused, ...semantic]).slice(0, RERANK_INPUT_K)
+}
+
+function rankByLocalScore(queryText, chunks) {
+  return [...chunks].sort((a, b) =>
+    localRetrievalScore(queryText, b) - localRetrievalScore(queryText, a)
+  )
+}
+
+export function localRetrievalScore(queryText, chunk) {
+  const query = normalizeText(queryText)
+  const keywords = extractKeywords(query)
+  const anchors = selectAnchorKeywords(keywords)
+  const content = normalizeText(chunk.content)
+  const metadata = normalizeText([chunk.source_file_name, chunk.section_header].filter(Boolean).join(' '))
+  const searchable = `${metadata} ${content}`
+  const phrase = query.replace(/^(earlier question|follow-up|current question):?\s*/g, '').trim()
+  const keywordMatches = keywords.filter(keyword => searchable.includes(keyword)).length
+  const metadataMatches = keywords.filter(keyword => metadata.includes(keyword)).length
+  const anchorMatches = anchors.filter(keyword => searchable.includes(keyword)).length
+  const coverage = keywords.length > 0 ? keywordMatches / keywords.length : 0
+  const phraseInContent = phrase.length >= 8 && content.includes(phrase) ? 1 : 0
+  const phraseInMetadata = phrase.length >= 5 && metadata.includes(phrase) ? 1 : 0
+  const channelBreadth = chunk.retrieval_channels?.length || 0
+
+  return coverage * 8 + keywordMatches * 1.2 + metadataMatches * 2.4 +
+    anchorMatches * 3.5 + phraseInContent * 5 + phraseInMetadata * 10 +
+    Number(chunk.similarity || 0) * 4 + Number(chunk.retrieval_score || 0) * 120 +
+    channelBreadth * 0.5
+}
+
+export function selectAnchorKeywords(keywords) {
+  const lowSignalTerms = new Set([
+    'activity', 'activities', 'campaign', 'campaigns', 'city', 'cities',
+    'detail', 'details', 'document', 'documents', 'example', 'examples',
+    'project', 'projects', 'resource', 'resources', 'programme', 'programmes',
+    'information', 'question', 'answer'
+  ])
+  const specific = keywords.filter(keyword => !lowSignalTerms.has(keyword))
+  return (specific.length > 0 ? specific : keywords)
+    .sort((a, b) => b.length - a.length).slice(0, 3)
 }
 
 async function rerankChunks(query, chunks, signal) {
   try {
-    const documents = chunks.map(c => c.content)
+    const documents = chunks.map(chunk => [
+      `Title: ${chunk.source_file_name || 'Untitled'}`,
+      chunk.section_header ? `Section: ${chunk.section_header}` : null,
+      chunk.page_number ? `Page: ${chunk.page_number}` : null,
+      chunk.slide_number ? `Slide: ${chunk.slide_number}` : null,
+      '', chunk.content
+    ].filter(value => value !== null).join('\n'))
     const response = await fetchWithTimeout('https://api.voyageai.com/v1/rerank', {
       method: 'POST',
       headers: {
@@ -187,47 +282,42 @@ async function rerankChunks(query, chunks, signal) {
         'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`
       },
       body: JSON.stringify({
-        query,
-        documents,
-        model: 'rerank-2.5',
-        top_k: Math.min(RERANK_POOL_K, documents.length),
+        query, documents, model: 'rerank-2.5',
+        top_k: Math.min(RERANK_OUTPUT_K, documents.length),
         return_documents: false
       }),
       signal
     }, 20_000)
-
     if (!response.ok) {
-      const err = await response.text()
-      console.error(`Rerank API error (${response.status}):`, err.slice(0, 300))
-      return chunks.slice(0, RERANK_POOL_K)
+      const errorBody = await response.text()
+      console.error(`Rerank API error (${response.status}):`, errorBody.slice(0, 300))
+      return rankByLocalScore(query, chunks).slice(0, RERANK_OUTPUT_K)
     }
-
     const data = await response.json()
-    return data.data
-      .filter(result => result.relevance_score >= MIN_RERANK_SCORE)
-      .sort((a, b) => b.relevance_score - a.relevance_score)
+    return data.data.sort((a, b) => b.relevance_score - a.relevance_score)
       .map(result => ({ ...chunks[result.index], rerank_score: result.relevance_score }))
-  } catch (err) {
-    if (signal?.aborted) throw err
-    console.error('Reranking failed, falling back to vector results:', err)
-    return chunks.slice(0, RERANK_POOL_K)
+  } catch (error) {
+    if (signal?.aborted) throw error
+    console.error('Reranking failed, using local rank:', error)
+    return rankByLocalScore(query, chunks).slice(0, RERANK_OUTPUT_K)
   }
 }
 
-function deduplicateChunks(chunks) {
-  const ids = new Set()
-  const contents = new Set()
+function rankFinalCandidates(queryText, chunks) {
+  return [...chunks].map(chunk => ({
+    ...chunk,
+    final_score: Number(chunk.rerank_score || 0) * 12 +
+      localRetrievalScore(queryText, chunk) * 0.22
+  })).sort((a, b) => b.final_score - a.final_score)
+}
 
+function deduplicateChunks(chunks) {
+  const seen = new Set()
   return chunks.filter(chunk => {
     if (!chunk?.content) return false
-    if (chunk.id !== undefined && chunk.id !== null) {
-      if (ids.has(chunk.id)) return false
-      ids.add(chunk.id)
-    }
-
-    const fingerprint = chunk.content.toLowerCase().replace(/\s+/g, ' ').trim()
-    if (contents.has(fingerprint)) return false
-    contents.add(fingerprint)
+    const key = chunkKey(chunk)
+    if (seen.has(key)) return false
+    seen.add(key)
     return true
   })
 }
@@ -236,9 +326,8 @@ function selectDiverseChunks(chunks) {
   const selected = []
   const overflow = []
   const sourceCounts = new Map()
-
   for (const chunk of chunks) {
-    const source = chunk.source_file_name || chunk.source_url || 'unknown'
+    const source = chunk.source_file_id || chunk.source_file_name || chunk.source_url || 'unknown'
     const count = sourceCounts.get(source) || 0
     if (count < MAX_PER_SOURCE) {
       selected.push(chunk)
@@ -247,81 +336,148 @@ function selectDiverseChunks(chunks) {
       overflow.push(chunk)
     }
   }
-
   return [...selected, ...overflow].slice(0, FINAL_TOP_K)
+}
+
+async function expandWithNeighbors(chunks) {
+  const parents = chunks
+    .filter(chunk => chunk.id !== undefined && chunk.id !== null && chunk.source_file_id)
+    .slice(0, NEIGHBOR_PARENT_K)
+  if (parents.length === 0) return chunks
+
+  try {
+    const { data: indexRows, error: indexError } = await supabase
+      .from('document_chunks').select('id, chunk_index')
+      .in('id', parents.map(chunk => chunk.id))
+    if (indexError || !indexRows?.length) return chunks
+
+    const indexById = new Map(indexRows.map(row => [String(row.id), row.chunk_index]))
+    const indexedParents = parents.filter(parent => Number.isInteger(indexById.get(String(parent.id))))
+    const responses = await Promise.all(indexedParents.map(parent => {
+      const index = indexById.get(String(parent.id))
+      let request = supabase.from('document_chunks').select(`${SELECTED_FIELDS}, chunk_index`)
+        .eq('source_file_id', parent.source_file_id)
+        .gte('chunk_index', Math.max(0, index - 1)).lte('chunk_index', index + 1)
+      request = parent.page_number === null || parent.page_number === undefined
+        ? request.is('page_number', null)
+        : request.eq('page_number', parent.page_number)
+      request = parent.slide_number === null || parent.slide_number === undefined
+        ? request.is('slide_number', null)
+        : request.eq('slide_number', parent.slide_number)
+      request = parent.section_header
+        ? request.eq('section_header', parent.section_header)
+        : request.is('section_header', null)
+      return request.order('chunk_index', { ascending: true })
+    }))
+
+    const expanded = []
+    indexedParents.forEach((parent, index) => {
+      const response = responses[index]
+      if (!response || response.error) {
+        expanded.push(parent)
+        return
+      }
+      expanded.push(...(response.data || []).map(neighbor => ({
+        ...neighbor,
+        is_neighbor: String(neighbor.id) !== String(parent.id),
+        neighbor_of: parent.id,
+        final_score: parent.final_score
+      })))
+    })
+    const expandedParentKeys = new Set(indexedParents.map(chunkKey))
+    return deduplicateChunks([
+      ...expanded,
+      ...chunks.filter(chunk => !expandedParentKeys.has(chunkKey(chunk)))
+    ])
+  } catch (error) {
+    console.error('Neighbor expansion unavailable:', error)
+    return chunks
+  }
 }
 
 export function extractKeywords(text) {
   const stopWords = new Set([
-    'how', 'many', 'what', 'is', 'are', 'the', 'a', 'an', 'in', 'of',
-    'to', 'and', 'or', 'for', 'with', 'on', 'at', 'this', 'that',
-    'can', 'does', 'do', 'tell', 'me', 'about', 'where', 'when',
-    'who', 'which', 'there', 'their', 'they', 'have', 'has', 'been',
+    'how', 'many', 'what', 'when', 'where', 'which', 'who', 'why', 'whose',
+    'is', 'are', 'was', 'were', 'the', 'a', 'an', 'in', 'of', 'to', 'and',
+    'or', 'for', 'with', 'on', 'at', 'this', 'that', 'these', 'those', 'can',
+    'could', 'would', 'should', 'does', 'do', 'did', 'tell', 'show', 'give',
+    'me', 'about', 'there', 'their', 'they', 'have', 'has', 'had', 'been',
     'from', 'into', 'than', 'more', 'some', 'any', 'all', 'but', 'not',
-    // The brand name occurs throughout the corpus and crowds more specific
-    // lexical matches out of the small keyword candidate pool.
-    'shift'
+    'information', 'specific', 'please', 'earlier', 'question', 'follow', 'shift'
   ])
+  return [...new Set(normalizeText(text)
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/)
+    .map(word => word.replace(/^-|-$/g, ''))
+    .filter(word => word.length > 2 && !stopWords.has(word)))]
+    .slice(0, 12)
+}
 
-  return [...new Set(
-    text.toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 3 && !stopWords.has(w))
-  )].slice(0, 6)
+function createPromptBlock(chunk, index, available) {
+  const location = [
+    chunk.page_number ? `page ${chunk.page_number}` : null,
+    chunk.slide_number ? `slide ${chunk.slide_number}` : null,
+    chunk.section_header || null
+  ].filter(Boolean).join(' · ')
+  const rawContent = String(chunk.content || '').trim()
+  const content = rawContent.length > available
+    ? `${rawContent.slice(0, Math.max(0, available - 1)).trimEnd()}…`
+    : rawContent
+  return {
+    text: `[S${index + 1}] ${chunk.source_file_name || 'Untitled'}${location ? ` · ${location}` : ''}\n${content}`,
+    content,
+    location
+  }
 }
 
 export function packChunksForPrompt(chunks, maxChars = MAX_CONTEXT_CHARS) {
   const blocks = []
   const usedChunks = []
+  const documents = []
   let remaining = maxChars
-
-  for (const chunk of chunks) {
-    const location = [
-      chunk.page_number ? `page ${chunk.page_number}` : null,
-      chunk.slide_number ? `slide ${chunk.slide_number}` : null,
-      chunk.section_header || null
-    ].filter(Boolean).join(' · ')
-    const header = `[Source: ${chunk.source_file_name || 'Untitled'}${location ? ` · ${location}` : ''}]`
-    const separatorCost = blocks.length > 0 ? 7 : 0
-    const available = Math.min(MAX_CHUNK_CHARS, remaining - header.length - separatorCost - 2)
-    if (available < 120) continue
-
-    const rawContent = String(chunk.content || '').trim()
-    const content = rawContent.length > available
-      ? `${rawContent.slice(0, Math.max(0, available - 1)).trimEnd()}…`
-      : rawContent
-    if (!content) continue
-
-    const block = `${header}\n${content}`
-    blocks.push(block)
+  for (const chunk of deduplicateChunks(chunks)) {
+    const title = String(chunk.source_file_name || 'Untitled').slice(0, 500)
+    const available = Math.min(MAX_CHUNK_CHARS, remaining - title.length - 80)
+    if (available < 160) continue
+    const block = createPromptBlock(chunk, usedChunks.length, available)
+    if (!block.content) continue
+    blocks.push(block.text)
     usedChunks.push(chunk)
-    remaining -= block.length + separatorCost
-    if (remaining < 120) break
+    documents.push({
+      type: 'document',
+      source: { type: 'text', media_type: 'text/plain', data: block.content },
+      title,
+      context: block.location || undefined,
+      citations: { enabled: true }
+    })
+    remaining -= block.text.length + 7
+    if (remaining < 160) break
   }
-
-  return {
-    text: blocks.join('\n\n===\n\n'),
-    chunks: usedChunks
-  }
+  return { text: blocks.join('\n\n===\n\n'), chunks: usedChunks, documents }
 }
 
 export function formatChunksForPrompt(chunks) {
   return packChunksForPrompt(chunks).text
 }
 
+export function citedChunksFromMessage(message, chunks) {
+  const citedIndexes = new Set()
+  for (const block of message?.content || []) {
+    for (const citation of block?.citations || []) {
+      if (Number.isInteger(citation.document_index) && citation.document_index < chunks.length) {
+        citedIndexes.add(citation.document_index)
+      }
+    }
+  }
+  if (citedIndexes.size === 0) return []
+  return [...citedIndexes].sort((a, b) => a - b)
+    .map(index => chunks[index]).filter(Boolean)
+}
+
 export function formatChunksForCitation(chunks) {
   const seen = new Set()
   return chunks.filter(chunk => {
-    // One source entry may span several overlapping chunks. Cite the logical
-    // location once instead of showing duplicate source rows for every chunk.
-    const key = [
-      chunk.source_file_name,
-      chunk.source_url,
-      chunk.page_number,
-      chunk.slide_number,
-      chunk.section_header
-    ].join(':')
+    const key = [chunk.source_file_name, chunk.source_url, chunk.page_number,
+      chunk.slide_number, chunk.section_header].join(':')
     if (seen.has(key)) return false
     seen.add(key)
     return true

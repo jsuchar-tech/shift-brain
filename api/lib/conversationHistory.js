@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js'
 
-const MAX_HISTORY_TURNS = 6
-const MAX_HISTORY_CHARS = 16_000
+const MAX_HISTORY_TURNS = 12
+const MAX_HISTORY_CHARS = 30_000
 const MAX_RETRIEVAL_QUERY_CHARS = 1_200
 const FOLLOW_UP_MAX_WORDS = 14
 const FOLLOW_UP_PREFIX = /^(and|also|but|so|then|what about|how about|why|when|where|which|who|can you|could you|does that|is that|are they|what does that|tell me more)\b/i
@@ -73,20 +73,28 @@ function compactHistory(messages) {
 // The main Claude prompt already receives normal chat history; this only helps
 // the existing embedding and reranking calls search for the right topic.
 export function buildRetrievalQuery(history, message) {
+  return buildRetrievalQueries(history, message).at(-1) || ''
+}
+
+// Keep the participant's exact wording as one semantic search and add a
+// standalone contextual version only for genuine follow-ups. Embedding both
+// in one Voyage request improves recall without using another language-model
+// call or polluting a new topic with the previous one.
+export function buildRetrievalQueries(history, message) {
   const current = String(message || '').trim()
-  if (!current) return ''
+  if (!current) return []
 
   const wordCount = current.match(/[\p{L}\p{N}]+/gu)?.length || 0
   const looksContextual = wordCount <= 5 ||
     FOLLOW_UP_PREFIX.test(current) ||
     (wordCount <= FOLLOW_UP_MAX_WORDS && FOLLOW_UP_REFERENCE.test(current))
-  if (!looksContextual) return current
+  if (!looksContextual) return [current]
 
   const previousUserMessage = [...(history || [])]
     .reverse()
     .find(item => item?.role === 'user' && String(item.content || '').trim())
 
-  if (!previousUserMessage) return current
+  if (!previousUserMessage) return [current]
 
   const labelsLength = 'Earlier question:\n\nFollow-up:\n'.length
   const availableForPrevious = Math.max(
@@ -94,9 +102,12 @@ export function buildRetrievalQuery(history, message) {
     MAX_RETRIEVAL_QUERY_CHARS - current.length - labelsLength
   )
   const previous = String(previousUserMessage.content).trim().slice(0, availableForPrevious)
-  if (!previous) return current
+  if (!previous) return [current]
 
-  return `Earlier question: ${previous}\n\nFollow-up: ${current}`
+  return [
+    current,
+    `Earlier question: ${previous}\n\nCurrent follow-up: ${current}`
+  ]
 }
 
 export async function createConversation(userId, firstMessage, language) {

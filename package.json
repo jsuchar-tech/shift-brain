@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node api/server.js",
     "dev": "node --watch api/server.js",
+    "test": "node --test tests/*.test.js && python -m unittest tests/test_chunker.py",
     "audit:production": "npm audit --omit=dev"
   },
   "dependencies": {
