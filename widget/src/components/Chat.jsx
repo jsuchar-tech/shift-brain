@@ -220,6 +220,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
             assets={assets}
             showWelcome={showWelcome}
             tokensRemaining={usage?.daily_remaining}
+            unlimitedTokens={usage?.unlimited === true}
           />
         </div>
       </main>
@@ -385,7 +386,7 @@ export default function Chat({ onOpenDashboard, settings, currentUser }) {
         .brain-chat__brain {
           position: static;
           width: 91px;
-          height: auto;
+          height: 81px;
           object-fit: cover;
           transform: none;
         }

@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt'
 const MAX_SIZE_MB = 10
 
-export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile, onClearFile, assets, showWelcome, tokensRemaining }) {
+export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile, onClearFile, assets, showWelcome, tokensRemaining, unlimitedTokens = false }) {
   const [value, setValue] = useState('')
   const fileInputRef = useRef(null)
 
@@ -72,7 +72,11 @@ export default function InputBar({ onSend, isLoading, onFileUpload, uploadedFile
               : <span className="brain-input__asset-icon"><img src={assets.plusBase} alt="" /><img className="brain-input__asset-glyph" src={assets.plusIcon} alt="" /></span>}
           </button>
 
-          <div className="brain-input__tokens">You have {Number.isFinite(tokensRemaining) ? tokensRemaining.toLocaleString() : '—'} token left</div>
+          <div className="brain-input__tokens">
+            {unlimitedTokens
+              ? 'Unlimited tokens'
+              : `You have ${Number.isFinite(tokensRemaining) ? tokensRemaining.toLocaleString() : '—'} token left`}
+          </div>
 
           <button
             className={`brain-input__icon brain-input__icon--send ${(!value.trim() || isLoading) ? 'is-disabled' : ''}`}

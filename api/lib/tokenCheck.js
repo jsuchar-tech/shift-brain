@@ -1,11 +1,14 @@
 import { supabase } from './supabase.js'
+import { tokenLimitsAreDisabled } from './tokenLimitsConfig.js'
 
 export async function checkTokenLimits(userId) {
-  if (process.env.DISABLE_TOKEN_LIMITS === 'true') {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('DISABLE_TOKEN_LIMITS must not be enabled in production')
+  if (tokenLimitsAreDisabled()) {
+    return {
+      allowed: true,
+      unlimited: true,
+      daily_remaining: null,
+      monthly_remaining: null
     }
-    return { allowed: true }
   }
 
   const { data, error } = await supabase

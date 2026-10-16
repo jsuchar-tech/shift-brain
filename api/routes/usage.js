@@ -1,28 +1,46 @@
 import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
+import { tokenLimitsAreDisabled } from '../lib/tokenLimitsConfig.js'
 import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
 // GET /usage/me
-// Returns token usage for the current user
 router.get('/me', requireAuth, async (req, res) => {
   try {
+    if (tokenLimitsAreDisabled()) {
+      return res.json({
+        unlimited: true,
+        tokens_used_today: 0,
+        tokens_used_this_month: 0,
+        daily_limit: null,
+        monthly_limit: null,
+        daily_remaining: null,
+        monthly_remaining: null
+      })
+    }
+
     const { data, error } = await supabase
       .from('user_token_usage')
       .select('*')
       .eq('user_id', req.user.id)
-      .single()
+      .maybeSingle()
 
     if (error) throw error
 
+    const dailyLimit = Number(data?.daily_limit ?? process.env.DAILY_TOKEN_LIMIT ?? 30000)
+    const monthlyLimit = Number(data?.monthly_limit ?? process.env.MONTHLY_TOKEN_LIMIT ?? 500000)
+    const tokensUsedToday = Number(data?.tokens_used_today || 0)
+    const tokensUsedThisMonth = Number(data?.tokens_used_this_month || 0)
+
     res.json({
-      tokens_used_today: data?.tokens_used_today || 0,
-      tokens_used_this_month: data?.tokens_used_this_month || 0,
-      daily_limit: data?.daily_limit || 30000,
-      monthly_limit: data?.monthly_limit || 500000,
-      daily_remaining: Math.max(0, (data?.daily_limit || 30000) - (data?.tokens_used_today || 0)),
-      monthly_remaining: Math.max(0, (data?.monthly_limit || 500000) - (data?.tokens_used_this_month || 0))
+      unlimited: false,
+      tokens_used_today: tokensUsedToday,
+      tokens_used_this_month: tokensUsedThisMonth,
+      daily_limit: dailyLimit,
+      monthly_limit: monthlyLimit,
+      daily_remaining: Math.max(0, dailyLimit - tokensUsedToday),
+      monthly_remaining: Math.max(0, monthlyLimit - tokensUsedThisMonth)
     })
   } catch (err) {
     console.error('Usage error:', err)
