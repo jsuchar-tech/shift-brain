@@ -1,0 +1,14 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.jakub.grabflex'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.jakub.grabflex'
+        minSdk 31
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+}
