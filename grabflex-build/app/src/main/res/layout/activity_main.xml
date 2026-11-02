@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="28dp" android:background="#FFFFFF">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Grab Flex" android:textColor="#00B14F" android:textSize="32sp" android:textStyle="bold" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Shows your current Grab ride status on the Galaxy Z Flip FlexWindow by reading only Grab's Android notifications." android:textColor="#222222" android:textSize="16sp" />
+    <Button android:id="@+id/notification_access" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="1. Grant notification access" />
+    <Button android:id="@+id/open_widget_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="2. Open FlexWindow settings" />
+    <Button android:id="@+id/demo" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Preview demo ride" />
+    <TextView android:id="@+id/debug_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="No Grab notification captured yet." android:textColor="#666666" android:textSize="13sp" />
+</LinearLayout>
