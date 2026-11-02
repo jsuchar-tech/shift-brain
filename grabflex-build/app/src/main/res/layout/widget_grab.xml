@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="22dp" android:background="@drawable/widget_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Grab" android:textColor="@color/grab_green" android:textSize="27sp" android:textStyle="bold" />
+        <TextView android:id="@+id/state_pill" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/green_pill" android:text="LIVE" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
+    </LinearLayout>
+    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="15dp" android:maxLines="2" android:ellipsize="end" android:text="Waiting for your Grab booking" android:textColor="@color/ink" android:textSize="24sp" android:textStyle="bold" />
+    <TextView android:id="@+id/eta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Book a car in Grab and it will appear here." android:textColor="@color/muted" android:textSize="14sp" />
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="15dp" android:layout_marginBottom="15dp" android:background="@drawable/divider" />
+    <TextView android:id="@+id/driver" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="Driver details will appear when Grab sends them" android:textColor="@color/ink" android:textSize="17sp" android:textStyle="bold" />
+    <TextView android:id="@+id/car" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:maxLines="1" android:ellipsize="end" android:text="Tap to open Grab" android:textColor="@color/muted" android:textSize="13sp" />
+    <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+    <TextView android:id="@+id/updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Notification access required" android:textColor="#909090" android:textSize="11sp" />
+</LinearLayout>
